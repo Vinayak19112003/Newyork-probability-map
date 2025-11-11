@@ -80,7 +80,7 @@ asia_range_window = input.int(200, "Asia Range Window", minval=50, maxval=500, g
 // ============================================================================
 
 is_asia = not na(time(timeframe.period, "2000-0000:1234567", "America/New_York"))
-is_london = not na(time(timeframe.period, "0200-0500:12345", "America/New_York"))
+is_london = not na(time(timeframe.period, "0000-0500:12345", "America/New_York"))
 is_transition = not na(time(timeframe.period, "0500-0830:12345", "America/New_York"))
 is_ny = not na(time(timeframe.period, "0830-1100:12345", "America/New_York"))
 

@@ -24,7 +24,7 @@ asia_range_window = input.int(200, "Asia Range Window", minval=50, maxval=500, g
 // ============================================================================
 
 is_asia = not na(time(timeframe.period, "2000-0000:1234567", "America/New_York"))
-is_london = not na(time(timeframe.period, "0200-0500:12345", "America/New_York"))
+is_london = not na(time(timeframe.period, "0000-0500:12345", "America/New_York"))
 is_transition = not na(time(timeframe.period, "0500-0830:12345", "America/New_York"))
 is_ny = not na(time(timeframe.period, "0830-1100:12345", "America/New_York"))
 
@@ -34,17 +34,17 @@ is_ny = not na(time(timeframe.period, "0830-1100:12345", "America/New_York"))
 
 var int DB_SIZE = 25
 
-var string[] db_variant = array.from("Expanded|High|Above|Above", "Expanded|High|Within|Below", "Normal|High|Above|Above", "Expanded|High|Within|Above", "Compressed|High|Above|Above",
-     "Normal|High|Within|Above", "Expanded|Low|Within|Above", "Expanded|High|Within|Within", "Expanded|Low|Below|Below", "Compressed|High|Within|Above",
-     "Normal|Low|Within|Above", "Expanded|Low|Within|Within", "Compressed|High|Within|Below", "Normal|High|Within|Within", "Normal|Low|Below|Below",
-     "Expanded|Low|Within|Below", "Normal|Low|Within|Below", "Compressed|Low|Within|Below", "Normal|High|Within|Below", "Expanded|High|Above|Within",
-     "Compressed|Low|Within|Above", "Expanded|None|Within|Above", "Expanded|High|Above|Below", "Normal|High|Above|Within", "Normal|High|Below|Below")
+var string[] db_variant = array.from("Expanded|High|Above|Above", "Normal|High|Above|Above", "Expanded|High|Within|Within", "Expanded|High|Within|Above", "Compressed|High|Above|Above",
+     "Expanded|High|Within|Below", "Expanded|Low|Below|Below", "Expanded|Low|Within|Above", "Expanded|Low|Within|Below", "Normal|High|Within|Above",
+     "Normal|Low|Below|Below", "Normal|Low|Within|Above", "Compressed|High|Within|Above", "Compressed|Both|Above|Above", "Normal|High|Within|Within",
+     "Expanded|Low|Within|Within", "Normal|High|Above|Within", "Expanded|High|Above|Within", "Compressed|Low|Within|Below", "Normal|Low|Within|Below",
+     "Compressed|Low|Below|Below", "Normal|High|Within|Below", "Compressed|High|Within|Below", "Expanded|Low|Below|Within", "Compressed|Both|Within|Below")
 
-var int[] db_n = array.from(85, 66, 66, 63, 62, 62, 58, 57, 56, 51, 47, 46, 45, 43, 42, 41, 41, 41, 41, 38, 36, 36, 35, 34, 34)
-var float[] db_p_high = array.from(92.94, 4.55, 92.42, 95.24, 93.55, 95.16, 94.83, 52.63, 5.36, 94.12, 91.49, 43.48, 2.22, 48.84, 2.38, 9.76, 7.32, 4.88, 9.76, 63.16, 91.67, 94.44, 5.71, 44.12, 5.88)
-var float[] db_p_fail = array.from(34.12, 42.42, 31.82, 36.51, 37.10, 45.16, 29.31, 52.63, 23.21, 45.10, 38.30, 36.96, 46.67, 34.88, 38.10, 53.66, 36.59, 29.27, 29.27, 31.58, 58.33, 50.00, 31.43, 41.18, 44.12)
-var float[] db_pen_high = array.from(12.00, 10.65, 11.90, 13.85, 12.25, 18.75, 19.70, 8.20, 6.20, 15.98, 9.25, 15.75, 52.70, 17.05, 4.30, 10.90, 1.20, 63.25, 6.77, 10.70, 17.65, 21.47, 40.42, 11.35, 15.15)
-var float[] db_pen_low = array.from(14.70, 21.35, 5.85, 9.10, 4.82, 9.90, 18.60, 8.65, 23.10, 9.40, 20.32, 16.17, 13.45, 11.90, 23.40, 21.85, 20.65, 23.80, 16.25, 10.13, 8.30, 8.38, 10.05, 5.65, 11.73)
+var int[] db_n = array.from(96, 80, 63, 62, 59, 59, 55, 52, 51, 49, 45, 44, 44, 44, 43, 43, 41, 39, 38, 36, 36, 36, 34, 34, 33)
+var float[] db_p_high = array.from(94.79, 91.25, 49.21, 93.55, 89.83, 5.08, 5.45, 94.23, 13.73, 95.92, 2.22, 90.91, 97.73, 95.45, 39.53, 41.86, 46.34, 58.97, 10.53, 2.78, 5.56, 16.67, 0.00, 38.24, 0.00)
+var float[] db_p_fail = array.from(22.92, 25.00, 46.03, 33.87, 38.98, 35.59, 21.82, 26.92, 43.14, 34.69, 33.33, 34.09, 43.18, 25.00, 34.88, 30.23, 31.71, 25.64, 26.32, 36.11, 27.78, 36.11, 44.12, 17.65, 36.36)
+var float[] db_pen_high = array.from(13.85, 12.00, 9.15, 12.65, 10.65, 19.05, 5.20, 14.65, 11.10, 18.55, 2.35, 11.03, 11.38, 29.20, 12.80, 15.02, 14.05, 8.15, 32.28, 91.85, 4.60, 7.15, nan, 21.65, nan)
+var float[] db_pen_low = array.from(12.90, 8.70, 7.10, 6.88, 6.57, 18.95, 19.23, 18.60, 19.23, 5.43, 26.55, 18.45, 3.40, 130.72, 7.37, 23.05, 8.35, 15.10, 21.85, 21.02, 20.80, 12.17, 12.80, 21.10, 22.40)
 
 // ============================================================================
 // STATE VARIABLES
