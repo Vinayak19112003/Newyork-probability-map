@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-TradingView PineScript v5 Generator (Fixed for Visibility)
+TradingView PineScript v5 Generator (With Better Diagnostics)
 
-Generates a robust indicator with diagnostic labels and always-visible elements.
+Shows debug info about why probability table may not appear.
 """
 
 import json
@@ -67,7 +67,7 @@ indicator("NY Probability Map", overlay=true, max_boxes_count=500, max_labels_co
 show_sessions = input.bool(true, "Show Session Boxes", group="Display")
 show_london_levels = input.bool(true, "Show London Levels", group="Display")
 show_prob_table = input.bool(true, "Show Probability Table", group="Display")
-show_debug = input.bool(false, "Show Debug Labels", group="Display")
+show_debug = input.bool(true, "Show Debug Info", group="Display")
 
 asia_color = input.color(color.new(color.blue, 85), "Asia", group="Colors")
 london_color = input.color(color.new(color.orange, 85), "London", group="Colors")
@@ -79,8 +79,6 @@ asia_range_window = input.int(200, "Asia Range Window", minval=50, maxval=500, g
 // TIME SESSIONS - Use exchange timezone
 // ============================================================================
 
-// Define sessions in ET (America/New_York)
-// Note: These times work best on NQ futures chart
 is_asia = not na(time(timeframe.period, "2000-0000:1234567", "America/New_York"))
 is_london = not na(time(timeframe.period, "0200-0500:12345", "America/New_York"))
 is_transition = not na(time(timeframe.period, "0500-0830:12345", "America/New_York"))
@@ -132,6 +130,9 @@ var float[] asia_history = array.new_float()
 var bool asia_started = false
 var bool london_started = false
 var bool ny_started = false
+
+// Debug info
+var string debug_msg = ""
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -188,6 +189,7 @@ if new_day
     asia_started := false
     london_started := false
     ny_started := false
+    debug_msg := ""
 
 // Track Asia session
 if is_asia
@@ -224,6 +226,15 @@ if is_ny and not is_ny[1] and na(ny_open)
     ny_started := true
     ny_open := open
 
+    // Debug: Check what data we have
+    debug_msg := "NY START:\\n"
+    debug_msg := debug_msg + "Asia: " + (na(asia_r) ? "MISSING" : str.tostring(asia_r, "#.#")) + "\\n"
+    debug_msg := debug_msg + "London H: " + (na(london_h) ? "MISSING" : str.tostring(london_h)) + "\\n"
+    debug_msg := debug_msg + "London L: " + (na(london_l) ? "MISSING" : str.tostring(london_l)) + "\\n"
+    debug_msg := debug_msg + "London M: " + (na(london_m) ? "MISSING" : str.tostring(london_m)) + "\\n"
+    debug_msg := debug_msg + "Trans Open: " + (na(trans_open) ? "MISSING" : str.tostring(trans_open)) + "\\n"
+    debug_msg := debug_msg + "Asia Hist: " + str.tostring(array.size(asia_history)) + " days\\n"
+
     // Calculate variant if all data available
     if not na(asia_r) and not na(london_h) and not na(london_l) and not na(london_m) and not na(trans_open) and not na(asia_h) and not na(asia_l) and london_r > 0
 
@@ -234,6 +245,11 @@ if is_ny and not is_ny[1] and na(ny_open)
 
         current_variant := asia_regime + "|" + london_sweep + "|" + trans_vs_london + "|" + ny_vs_london
         variant_idx := f_find_variant(current_variant)
+
+        debug_msg := debug_msg + "\\nVariant: " + current_variant + "\\n"
+        debug_msg := debug_msg + "Found: " + (variant_idx >= 0 ? "YES (idx=" + str.tostring(variant_idx) + ")" : "NO - Not in Top 25")
+    else
+        debug_msg := debug_msg + "\\nERROR: Missing required data!"
 
 // ============================================================================
 // VISUALIZATION
@@ -248,14 +264,9 @@ bgcolor(is_asia ? color.new(color.blue, 95) : na, title="Asia Session")
 bgcolor(is_london ? color.new(color.orange, 95) : na, title="London Session")
 bgcolor(is_ny ? color.new(color.green, 95) : na, title="NY Session")
 
-// Debug labels
-if show_debug
-    if is_asia and not is_asia[1]
-        label.new(bar_index, high, "ASIA START", style=label.style_label_down, color=color.blue, textcolor=color.white, size=size.small)
-    if is_london and not is_london[1]
-        label.new(bar_index, high, "LONDON START", style=label.style_label_down, color=color.orange, textcolor=color.white, size=size.small)
-    if is_ny and not is_ny[1]
-        label.new(bar_index, high, "NY START", style=label.style_label_down, color=color.green, textcolor=color.white, size=size.small)
+// Debug label at NY open
+if show_debug and is_ny and not is_ny[1]
+    label.new(bar_index, high, debug_msg, style=label.style_label_down, color=color.blue, textcolor=color.white, size=size.small, textalign=text.align_left)
 
 // ============================================================================
 // PROBABILITY TABLE
@@ -263,57 +274,76 @@ if show_debug
 
 var table info_table = table.new(position.top_right, 2, 10, border_width=1)
 
-if show_prob_table and is_ny and variant_idx >= 0
-    n = array.get(db_n, variant_idx)
-    p_high = array.get(db_p_high, variant_idx)
-    p_low = 100.0 - p_high
-    p_fail = array.get(db_p_fail, variant_idx)
-    pen_h = array.get(db_pen_high, variant_idx)
-    pen_l = array.get(db_pen_low, variant_idx)
+if show_prob_table and is_ny
+    if variant_idx >= 0
+        // Show probabilities
+        n = array.get(db_n, variant_idx)
+        p_high = array.get(db_p_high, variant_idx)
+        p_low = 100.0 - p_high
+        p_fail = array.get(db_p_fail, variant_idx)
+        pen_h = array.get(db_pen_high, variant_idx)
+        pen_l = array.get(db_pen_low, variant_idx)
 
-    reliability = n >= 150 ? "High" : n >= 50 ? "Medium" : "Low"
-    rel_color = n >= 150 ? color.green : n >= 50 ? color.orange : color.red
+        reliability = n >= 150 ? "High" : n >= 50 ? "Medium" : "Low"
+        rel_color = n >= 150 ? color.green : n >= 50 ? color.orange : color.red
 
-    // Header
-    table.cell(info_table, 0, 0, "NY PROBABILITY MAP", bgcolor=color.new(color.gray, 70), text_color=color.white, text_size=size.normal)
-    table.merge_cells(info_table, 0, 0, 1, 0)
+        table.cell(info_table, 0, 0, "NY PROBABILITY MAP", bgcolor=color.new(color.gray, 70), text_color=color.white, text_size=size.normal)
+        table.merge_cells(info_table, 0, 0, 1, 0)
 
-    // Main probabilities
-    table.cell(info_table, 0, 1, "P(High First):", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
-    table.cell(info_table, 1, 1, str.tostring(p_high, "#.#") + "%", bgcolor=color.new(color.red, 80), text_color=color.white, text_size=size.large)
+        table.cell(info_table, 0, 1, "P(High First):", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 1, 1, str.tostring(p_high, "#.#") + "%", bgcolor=color.new(color.red, 80), text_color=color.white, text_size=size.large)
 
-    table.cell(info_table, 0, 2, "P(Low First):", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
-    table.cell(info_table, 1, 2, str.tostring(p_low, "#.#") + "%", bgcolor=color.new(color.green, 80), text_color=color.white, text_size=size.large)
+        table.cell(info_table, 0, 2, "P(Low First):", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 1, 2, str.tostring(p_low, "#.#") + "%", bgcolor=color.new(color.green, 80), text_color=color.white, text_size=size.large)
 
-    // Additional stats
-    table.cell(info_table, 0, 3, "P(Fail):", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
-    table.cell(info_table, 1, 3, str.tostring(p_fail, "#.#") + "%", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 0, 3, "P(Fail):", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 1, 3, str.tostring(p_fail, "#.#") + "%", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
 
-    table.cell(info_table, 0, 4, "Penetration:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
-    table.cell(info_table, 1, 4, str.tostring(p_high > 50 ? pen_h : pen_l, "#.#") + " pts", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 0, 4, "Penetration:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 1, 4, str.tostring(p_high > 50 ? pen_h : pen_l, "#.#") + " pts", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
 
-    table.cell(info_table, 0, 5, "Sample Size:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
-    table.cell(info_table, 1, 5, str.tostring(n), bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 0, 5, "Sample Size:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 1, 5, str.tostring(n), bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
 
-    table.cell(info_table, 0, 6, "Reliability:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
-    table.cell(info_table, 1, 6, reliability, bgcolor=color.new(color.gray, 90), text_color=rel_color, text_size=size.small)
+        table.cell(info_table, 0, 6, "Reliability:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 1, 6, reliability, bgcolor=color.new(color.gray, 90), text_color=rel_color, text_size=size.small)
 
-    // London levels
-    table.cell(info_table, 0, 7, "London High:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
-    table.cell(info_table, 1, 7, str.tostring(london_h, format.mintick), bgcolor=color.new(color.red, 90), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 0, 7, "London High:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 1, 7, str.tostring(london_h, format.mintick), bgcolor=color.new(color.red, 90), text_color=color.white, text_size=size.small)
 
-    table.cell(info_table, 0, 8, "London Low:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
-    table.cell(info_table, 1, 8, str.tostring(london_l, format.mintick), bgcolor=color.new(color.green, 90), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 0, 8, "London Low:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 1, 8, str.tostring(london_l, format.mintick), bgcolor=color.new(color.green, 90), text_color=color.white, text_size=size.small)
 
-    // Variant display
-    table.cell(info_table, 0, 9, "Variant:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.tiny)
-    table.cell(info_table, 1, 9, current_variant, bgcolor=color.new(color.gray, 90), text_color=color.yellow, text_size=size.tiny)
+        table.cell(info_table, 0, 9, "Variant:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.tiny)
+        table.cell(info_table, 1, 9, current_variant, bgcolor=color.new(color.gray, 90), text_color=color.yellow, text_size=size.tiny)
+
+    else
+        // Show error message
+        table.clear(info_table, 0, 0, 1, 9)
+        table.cell(info_table, 0, 0, "DEBUG INFO", bgcolor=color.new(color.red, 70), text_color=color.white, text_size=size.normal)
+        table.merge_cells(info_table, 0, 0, 1, 0)
+
+        if current_variant != ""
+            // Variant not found in top 25
+            table.cell(info_table, 0, 1, "Status:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
+            table.cell(info_table, 1, 1, "Variant Not in Top 25", bgcolor=color.new(color.orange, 90), text_color=color.white, text_size=size.small)
+
+            table.cell(info_table, 0, 2, "Variant:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.tiny)
+            table.cell(info_table, 1, 2, current_variant, bgcolor=color.new(color.gray, 90), text_color=color.yellow, text_size=size.tiny)
+
+            table.cell(info_table, 0, 3, "Note:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.tiny)
+            table.cell(info_table, 1, 3, "This setup has <34 samples", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.tiny)
+        else
+            // Missing data
+            table.cell(info_table, 0, 1, "Status:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
+            table.cell(info_table, 1, 1, "Missing Data", bgcolor=color.new(color.red, 90), text_color=color.white, text_size=size.small)
+
+            table.cell(info_table, 0, 2, "Check:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.tiny)
+            table.cell(info_table, 1, 2, "See blue label below", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.tiny)
 
 else if not is_ny and show_prob_table
-    // Clear table when not in NY session
     table.clear(info_table, 0, 0, 1, 9)
-    // Show waiting message
-    table.cell(info_table, 0, 0, "Waiting for NY Session...", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
+    table.cell(info_table, 0, 0, "Waiting for NY Session (08:30 ET)...", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
     table.merge_cells(info_table, 0, 0, 1, 0)
 '''
 
@@ -328,7 +358,7 @@ else if not is_ny and show_prob_table
 def main():
     """Main execution."""
     print("\n" + "="*80)
-    print("PINESCRIPT GENERATOR - FIXED FOR VISIBILITY")
+    print("PINESCRIPT GENERATOR - WITH DIAGNOSTICS")
     print("="*80)
 
     prob_map = load_probability_map()
@@ -338,25 +368,15 @@ def main():
     print("✓ GENERATION COMPLETE")
     print("="*80)
 
-    print("\n⚠️  IMPORTANT SETUP STEPS:")
-    print("\n1. Chart Requirements:")
-    print("   - Symbol: NQ1! or NQZ2024 (NQ futures)")
-    print("   - Timeframe: Use 1min, 5min, or 15min")
-    print("   - Exchange: CME")
-    print("\n2. Timezone Settings:")
-    print("   - Right-click chart → Settings")
-    print("   - Set timezone to 'America/New_York' or 'Exchange'")
-    print("\n3. Visual Checks:")
-    print("   - You should see background colors during sessions")
-    print("   - Red/green lines during NY session (08:30-11:00 ET)")
-    print("   - Probability table appears top-right during NY")
-    print("\n4. Debug Mode:")
-    print("   - Enable 'Show Debug Labels' in settings")
-    print("   - This shows when sessions start")
-    print("\n5. If still not visible:")
-    print("   - Check you're viewing a trading day (Mon-Fri)")
-    print("   - Scroll to recent data (2024)")
-    print("   - Make sure chart is showing ET business hours")
+    print("\n📊 DEBUG MODE IS NOW ENABLED BY DEFAULT")
+    print("\nWhat you'll see at 08:30 ET:")
+    print("  1. Blue label showing what data is available")
+    print("  2. If variant found: Full probability table")
+    print("  3. If variant NOT found: Reason why (missing data or not in top 25)")
+    print("\nMost common issues:")
+    print("  - Missing Asia session data (need prior day)")
+    print("  - Missing London session data")
+    print("  - Variant has <34 samples (not in top 25)")
 
 if __name__ == '__main__':
     main()
