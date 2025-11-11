@@ -2,8 +2,10 @@
 """
 108-Variant NY Probability Map Analysis (CORRECTED LOGIC)
 
-Key Fix: London Session is now 00:00-05:00 (merged, gapless)
-This eliminates the time gap issue and creates continuous sessions.
+Continuous Gapless Sessions:
+- Asia: 16:00 - 02:00 (next day)
+- London: 02:00 - 08:00
+- NY: 08:00 - 16:00
 """
 
 import pandas as pd
@@ -17,16 +19,14 @@ warnings.filterwarnings('ignore')
 # CONFIGURATION (CORRECTED)
 # ============================================================================
 
-# Session time boundaries (America/New_York) - GAPLESS!
+# Session time boundaries (America/New_York) - CONTINUOUS GAPLESS!
 SESSION_TIMES = {
-    'asia_start': time(20, 0),      # 20:00 (previous day)
-    'asia_end': time(0, 0),         # 00:00
-    'london_start': time(0, 0),     # 00:00 (MERGED - no gap!)
-    'london_end': time(5, 0),       # 05:00 (MERGED - full European session)
-    'transition_start': time(5, 0), # 05:00
-    'transition_end': time(8, 30),  # 08:30
-    'ny_start': time(8, 30),        # 08:30
-    'ny_end': time(11, 0),          # 11:00
+    'asia_start': time(16, 0),      # 16:00 (previous day)
+    'asia_end': time(2, 0),         # 02:00
+    'london_start': time(2, 0),     # 02:00 (continuous)
+    'london_end': time(8, 0),       # 08:00
+    'ny_start': time(8, 0),         # 08:00
+    'ny_end': time(16, 0),          # 16:00
 }
 
 # Analysis parameters
@@ -112,19 +112,19 @@ def calculate_daily_sessions(df):
     """
     Calculate session boundaries and features for each trading day.
 
-    CORRECTED: London is now 00:00-05:00 (gapless!)
+    Continuous gapless sessions: Asia 16-02, London 02-08, NY 08-16
 
     Returns:
         DataFrame with one row per trading day containing all session features
     """
     print("\n" + "="*80)
-    print("CALCULATING SESSION BOUNDARIES (CORRECTED)")
+    print("CALCULATING SESSION BOUNDARIES")
     print("="*80)
     print("\nSession Times:")
-    print("  Asia:       20:00 (prev) - 00:00")
-    print("  London:     00:00 - 05:00 (MERGED - No Gap!)")
-    print("  Transition: 05:00 - 08:30")
-    print("  NY:         08:30 - 11:00")
+    print("  Asia:   16:00 (prev) - 02:00")
+    print("  London: 02:00 - 08:00")
+    print("  NY:     08:00 - 16:00")
+    print("  (Continuous - No Gap!)")
 
     # Get unique trading dates
     dates = df.index.normalize().unique()
@@ -141,21 +141,21 @@ def calculate_daily_sessions(df):
                                SESSION_TIMES['asia_end'],
                                prev_day=True)
 
-        # CORRECTED: London is now 00:00-05:00 (full session, no gap)
         london = get_session_data(df, date,
                                  SESSION_TIMES['london_start'],
                                  SESSION_TIMES['london_end'])
-
-        transition = get_session_data(df, date,
-                                     SESSION_TIMES['transition_start'],
-                                     SESSION_TIMES['transition_end'])
 
         ny = get_session_data(df, date,
                              SESSION_TIMES['ny_start'],
                              SESSION_TIMES['ny_end'])
 
+        # Capture "transition open" at 08:00 (handoff from London to NY)
+        handoff_time = pd.Timestamp(date.date()).tz_localize('America/New_York') + pd.Timedelta(hours=8)
+        handoff_bar = df[(df.index >= handoff_time) & (df.index < handoff_time + pd.Timedelta(minutes=1))]
+        transition_open = handoff_bar['Open'].iloc[0] if len(handoff_bar) > 0 else None
+
         # Skip days with missing sessions
-        if any(s is None for s in [asia, london, transition, ny]):
+        if any(s is None for s in [asia, london, ny]) or transition_open is None:
             continue
 
         daily_sessions.append({
@@ -167,18 +167,15 @@ def calculate_daily_sessions(df):
             'asia_close': asia['close'],
             'asia_mid': asia['midpoint'],
             'asia_range': asia['range'],
-            # London session (CORRECTED: now 00:00-05:00)
+            # London session
             'london_open': london['open'],
             'london_high': london['high'],
             'london_low': london['low'],
             'london_close': london['close'],
             'london_mid': london['midpoint'],
             'london_range': london['range'],
-            # Transition
-            'transition_open': transition['open'],
-            'transition_high': transition['high'],
-            'transition_low': transition['low'],
-            'transition_close': transition['close'],
+            # Transition price (handoff at 08:00)
+            'transition_open': transition_open,
             # NY session
             'ny_open': ny['open'],
             'ny_high': ny['high'],
@@ -246,15 +243,15 @@ def calculate_london_sweep(df):
     """
     Calculate London Sweep pattern relative to Asia range.
 
-    CORRECTED: London is now 00:00-05:00 vs Asia 20:00-00:00
+    London: 02:00-08:00 vs Asia: 16:00-02:00
 
     Returns:
         DataFrame with 'london_sweep' column (None/High/Low/Both)
     """
     print("\n" + "="*80)
-    print("CALCULATING LONDON SWEEP PATTERN (CORRECTED)")
+    print("CALCULATING LONDON SWEEP PATTERN")
     print("="*80)
-    print("Comparing London (00:00-05:00) vs Asia (20:00-00:00)")
+    print("Comparing London (02:00-08:00) vs Asia (16:00-02:00)")
 
     def classify_sweep(row):
         swept_high = row['london_high'] > row['asia_high']
@@ -280,7 +277,7 @@ def calculate_open_vs_london_mid(df, open_col, label):
     """
     Calculate Open position relative to London Midpoint with tolerance band.
 
-    CORRECTED: London Mid is now from 00:00-05:00 session
+    London Mid is from 02:00-08:00 session
 
     Args:
         df: DataFrame
@@ -291,9 +288,9 @@ def calculate_open_vs_london_mid(df, open_col, label):
         DataFrame with new column (Above/Below/Within)
     """
     print(f"\n{'='*80}")
-    print(f"CALCULATING {label.upper()} (CORRECTED)")
+    print(f"CALCULATING {label.upper()}")
     print(f"{'='*80}")
-    print(f"Using London Mid from 00:00-05:00 session")
+    print(f"Using London Mid from 02:00-08:00 session")
 
     # Calculate tolerance band
     df['london_mid_tolerance'] = df['london_range'] * LONDON_MID_TOLERANCE
@@ -346,9 +343,9 @@ def create_variant_fingerprint(df):
 
 def calculate_labels(df):
     """
-    Calculate outcome labels for the NY window (08:30-11:00).
+    Calculate outcome labels for the NY window (08:00-16:00).
 
-    CORRECTED: Target levels are now from London 00:00-05:00 session
+    Target levels are from London 02:00-08:00 session
 
     Labels:
     - first_sweep_side: Which level was hit first (High/Low)
@@ -360,9 +357,9 @@ def calculate_labels(df):
         DataFrame with label columns
     """
     print("\n" + "="*80)
-    print("CALCULATING OUTCOME LABELS (CORRECTED)")
+    print("CALCULATING OUTCOME LABELS")
     print("="*80)
-    print("Target levels from London 00:00-05:00 session")
+    print("Target levels from London 02:00-08:00 session")
 
     labels = []
 
@@ -371,8 +368,8 @@ def calculate_labels(df):
             print(f"Processing label {idx+1}/{len(df)}...", end='\r')
 
         ny_data = row['ny_data']
-        target_high = row['london_high']  # From 00:00-05:00 session
-        target_low = row['london_low']    # From 00:00-05:00 session
+        target_high = row['london_high']  # From 02:00-08:00 session
+        target_low = row['london_low']    # From 02:00-08:00 session
 
         # Track sweep times
         hit_high_time = None
@@ -576,13 +573,13 @@ def main():
     """Main analysis workflow."""
     print("\n" + "="*80)
     print("108-VARIANT NY PROBABILITY MAP ANALYSIS")
-    print("CORRECTED: London Session = 00:00-05:00 (Gapless!)")
+    print("Continuous Gapless Sessions: Asia 16-02, London 02-08, NY 08-16")
     print("="*80)
 
     # Step 1: Load data
     df = load_clean_data()
 
-    # Step 2: Calculate session boundaries (CORRECTED)
+    # Step 2: Calculate session boundaries
     sessions_df = calculate_daily_sessions(df)
 
     # Step 3: Calculate 4-factor context
@@ -596,7 +593,7 @@ def main():
     )
     sessions_df = create_variant_fingerprint(sessions_df)
 
-    # Step 4: Calculate labels (CORRECTED - using London 00:00-05:00)
+    # Step 4: Calculate labels
     sessions_df = calculate_labels(sessions_df)
 
     # Step 5: Aggregate probabilities
@@ -606,11 +603,12 @@ def main():
     export_results(prob_map, sessions_df)
 
     print("\n" + "="*80)
-    print("✓ ANALYSIS COMPLETE (CORRECTED LOGIC)")
+    print("✓ ANALYSIS COMPLETE")
     print("="*80)
-    print("\nKey Correction:")
-    print("  London Session: 00:00-05:00 (was 02:00-05:00)")
-    print("  This eliminates the time gap and creates continuous sessions!")
+    print("\nContinuous Gapless Sessions:")
+    print("  Asia:   16:00 - 02:00")
+    print("  London: 02:00 - 08:00")
+    print("  NY:     08:00 - 16:00")
     print("\nNext steps:")
     print("1. Run validation_analysis.py to check probability drift across eras")
     print("2. Run generate_pinescript.py to create TradingView indicator")

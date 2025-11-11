@@ -79,10 +79,9 @@ asia_range_window = input.int(200, "Asia Range Window", minval=50, maxval=500, g
 // TIME SESSIONS
 // ============================================================================
 
-is_asia = not na(time(timeframe.period, "2000-0000:1234567", "America/New_York"))
-is_london = not na(time(timeframe.period, "0000-0500:12345", "America/New_York"))
-is_transition = not na(time(timeframe.period, "0500-0830:12345", "America/New_York"))
-is_ny = not na(time(timeframe.period, "0830-1100:12345", "America/New_York"))
+is_asia = not na(time(timeframe.period, "1600-0200:1234567", "America/New_York"))
+is_london = not na(time(timeframe.period, "0200-0800:12345", "America/New_York"))
+is_ny = not na(time(timeframe.period, "0800-1600:12345", "America/New_York"))
 
 // ============================================================================
 // VARIANT DATABASE (TOP 25)
@@ -210,10 +209,7 @@ if not is_london and london_started and na(london_m)
     if not na(london_h) and not na(london_l)
         london_m := (london_h + london_l) / 2
         london_r := london_h - london_l
-
-// Capture Transition open
-if is_transition and not is_transition[1] and na(trans_open)
-    trans_open := open
+        trans_open := open  // Capture price at handoff (08:00)
 
 // NY open - calculate variant
 if is_ny and not is_ny[1] and na(ny_open)
