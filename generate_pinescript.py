@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """
-TradingView PineScript v5 Generator
+TradingView PineScript v5 Generator (Simplified)
 
-Generates a complete, self-contained TradingView indicator that embeds
-the 108-variant probability map and displays live probabilities on the chart.
+Generates a robust TradingView indicator with only the most reliable variants.
 """
 
 import json
@@ -21,378 +20,334 @@ def load_probability_map(filepath='ny_probability_map.json'):
     print(f"\nLoaded {len(prob_map)} variants")
     return prob_map
 
+def filter_top_variants(prob_map, top_n=25):
+    """Filter to only the most reliable variants."""
+    # Sort by sample size
+    sorted_variants = sorted(prob_map, key=lambda x: x['n'], reverse=True)
+
+    # Take top N
+    top_variants = sorted_variants[:top_n]
+
+    print(f"\nFiltered to top {len(top_variants)} variants by sample size")
+    print(f"Sample size range: {top_variants[0]['n']} to {top_variants[-1]['n']}")
+
+    return top_variants
+
 def generate_pinescript(prob_map, output_file='NY_Probability_Map.pine'):
     """Generate the complete PineScript v5 indicator."""
     print("\n" + "="*80)
     print("GENERATING PINESCRIPT V5 INDICATOR")
     print("="*80)
 
+    # Filter to top variants only
+    top_variants = filter_top_variants(prob_map, top_n=25)
+
     # Start building the script
     pine_script = '''// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
-// © NY Probability Map - 108-Variant Context Engine
+// © NY Probability Map - Top 25 Variants
 
 //@version=5
-indicator("NY Probability Map (108-Variant)", overlay=true, max_boxes_count=500, max_labels_count=500)
+indicator("NY Probability Map", overlay=true, max_boxes_count=500, max_labels_count=500)
 
 // ============================================================================
 // USER INPUTS
 // ============================================================================
 
-// Session Display
-show_asia = input.bool(true, "Show Asia Session", group="Sessions")
-show_london = input.bool(true, "Show London Session", group="Sessions")
-show_ny = input.bool(true, "Show NY Session", group="Sessions")
-
-// Session Colors
-asia_color = input.color(color.new(color.blue, 90), "Asia Session", group="Colors")
-london_color = input.color(color.new(color.orange, 90), "London Session", group="Colors")
-ny_color = input.color(color.new(color.green, 90), "NY Session", group="Colors")
-
-// Lines
-show_london_levels = input.bool(true, "Show London High/Low", group="Display")
+show_sessions = input.bool(true, "Show Session Boxes", group="Display")
+show_london_levels = input.bool(true, "Show London Levels", group="Display")
 show_prob_table = input.bool(true, "Show Probability Table", group="Display")
 
-// Analysis Parameters
-asia_range_window = input.int(200, "Asia Range Rolling Window", minval=50, group="Analysis")
+asia_color = input.color(color.new(color.blue, 90), "Asia", group="Colors")
+london_color = input.color(color.new(color.orange, 90), "London", group="Colors")
+ny_color = input.color(color.new(color.green, 90), "NY", group="Colors")
+
+asia_range_window = input.int(200, "Asia Range Window", minval=50, maxval=500, group="Analysis")
 
 // ============================================================================
-// SESSION TIME DEFINITIONS (America/New_York)
+// TIME SESSIONS
 // ============================================================================
 
-// Asia: 20:00 (prev day) - 00:00
-asia_session = time(timeframe.period, "2000-0000:1234567")
-
-// London: 02:00 - 05:00
-london_session = time(timeframe.period, "0200-0500:1234567")
-
-// Transition: 05:00 - 08:30
-transition_session = time(timeframe.period, "0500-0830:1234567")
-
-// NY: 08:30 - 11:00
-ny_session = time(timeframe.period, "0830-1100:1234567")
+is_asia = not na(time(timeframe.period, "2000-0000:23456"))
+is_london = not na(time(timeframe.period, "0200-0500:12345"))
+is_ny = not na(time(timeframe.period, "0830-1100:12345"))
 
 // ============================================================================
-// PROBABILITY MAP DATA (EMBEDDED)
+// VARIANT DATABASE (TOP 25 BY SAMPLE SIZE)
 // ============================================================================
 
 '''
 
-    # Generate arrays for probability map
-    print("\nGenerating probability map arrays...")
+    # Generate compact variant database
+    print("\nGenerating variant database...")
 
-    # Create arrays for each field
-    variants = []
-    n_samples = []
-    first_high_pcts = []
-    first_low_pcts = []
-    sweep_both_pcts = []
-    fail_pcts = []
-    median_pen_highs = []
-    median_pen_lows = []
-    reliabilities = []
+    # Create the variant data as individual arrays
+    variant_strings = []
+    variant_n = []
+    variant_p_high = []
+    variant_p_fail = []
+    variant_pen_high = []
+    variant_pen_low = []
 
-    # Also create arrays for the 4 factors
-    asia_regimes = []
-    london_sweeps = []
-    transition_vs_londons = []
-    ny_open_vs_londons = []
+    for v in top_variants:
+        variant_strings.append(v['variant'])
+        variant_n.append(v['n'])
+        variant_p_high.append(v['first_high_pct'])
+        variant_p_fail.append(v['fail_pct'])
 
-    for variant_data in prob_map:
-        variants.append(variant_data['variant'])
-        n_samples.append(variant_data['n'])
-        first_high_pcts.append(variant_data['first_high_pct'])
-        first_low_pcts.append(variant_data['first_low_pct'])
-        sweep_both_pcts.append(variant_data['sweep_both_pct'])
-        fail_pcts.append(variant_data['fail_pct'])
+        # Handle NaN/None values
+        pen_high = v['median_pen_high'] if v['median_pen_high'] is not None else 0.0
+        pen_low = v['median_pen_low'] if v['median_pen_low'] is not None else 0.0
 
-        median_pen_highs.append(variant_data['median_pen_high'] if variant_data['median_pen_high'] is not None else 0.0)
-        median_pen_lows.append(variant_data['median_pen_low'] if variant_data['median_pen_low'] is not None else 0.0)
+        variant_pen_high.append(pen_high)
+        variant_pen_low.append(pen_low)
 
-        reliabilities.append(1 if variant_data['reliability'] == 'High' else (2 if variant_data['reliability'] == 'Medium' else 3))
+    # Add compact variant data to script
+    pine_script += f'''// Variant count: {len(variant_strings)}
+var int DB_SIZE = {len(variant_strings)}
 
-        asia_regimes.append(variant_data['asia_regime'])
-        london_sweeps.append(variant_data['london_sweep'])
-        transition_vs_londons.append(variant_data['transition_vs_london'])
-        ny_open_vs_londons.append(variant_data['ny_open_vs_london'])
+// Database arrays
+var string[] db_variant = array.from('''
 
-    # Add the arrays to the script
-    pine_script += f'''// Probability Map Data ({len(variants)} variants)
-var string[] map_variants = array.from({', '.join([f'"{v}"' for v in variants])})
+    # Add variants in chunks to avoid line length issues
+    chunk_size = 5
+    for i in range(0, len(variant_strings), chunk_size):
+        chunk = variant_strings[i:i+chunk_size]
+        if i == 0:
+            pine_script += ', '.join([f'"{v}"' for v in chunk])
+        else:
+            pine_script += f''',\n     {', '.join([f'"{v}"' for v in chunk])}'''
 
-var int[] map_n = array.from({', '.join(map(str, n_samples))})
+    pine_script += ')\n\n'
 
-var float[] map_first_high_pct = array.from({', '.join(map(str, first_high_pcts))})
+    # Add numeric arrays
+    pine_script += f'''var int[] db_n = array.from({', '.join(map(str, variant_n))})
 
-var float[] map_fail_pct = array.from({', '.join(map(str, fail_pcts))})
+var float[] db_p_high = array.from({', '.join(f'{x:.2f}' for x in variant_p_high)})
 
-var float[] map_median_pen_high = array.from({', '.join(map(str, median_pen_highs))})
+var float[] db_p_fail = array.from({', '.join(f'{x:.2f}' for x in variant_p_fail)})
 
-var float[] map_median_pen_low = array.from({', '.join(map(str, median_pen_lows))})
+var float[] db_pen_high = array.from({', '.join(f'{x:.2f}' for x in variant_pen_high)})
 
-var int[] map_reliability = array.from({', '.join(map(str, reliabilities))})
+var float[] db_pen_low = array.from({', '.join(f'{x:.2f}' for x in variant_pen_low)})
 
 // ============================================================================
-// SESSION TRACKING VARIABLES
+// STATE VARIABLES
 // ============================================================================
 
-var float asia_high = na
-var float asia_low = na
-var float asia_range = na
+var float asia_h = na
+var float asia_l = na
+var float asia_r = na
 
-var float london_high = na
-var float london_low = na
-var float london_mid = na
-var float london_range = na
+var float london_h = na
+var float london_l = na
+var float london_m = na
+var float london_r = na
 
-var float transition_open = na
+var float trans_open = na
 var float ny_open = na
 
-var string current_variant = na
-var int variant_index = -1
+var string current_variant = ""
+var int variant_idx = -1
 
+var float[] asia_history = array.new_float()
+
+// Visual elements
 var box asia_box = na
 var box london_box = na
 var box ny_box = na
-
-var line london_high_line = na
-var line london_low_line = na
-
-var table prob_table = na
-
-// Arrays for rolling Asia range calculation
-var float[] asia_range_history = array.new_float(0)
+var line london_h_line = na
+var line london_l_line = na
+var table info_table = na
 
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
 
-// Get Asia Range Regime based on rolling quantiles
-get_asia_regime(range_val) =>
-    if array.size(asia_range_history) < 50
-        "Normal"  // Default until we have enough data
-    else
-        sorted = array.copy(asia_range_history)
+// Get Asia regime
+f_asia_regime(range_val) =>
+    result = "Normal"
+    if array.size(asia_history) >= 50
+        sorted = array.copy(asia_history)
         array.sort(sorted)
-
         size = array.size(sorted)
-        q33_idx = int(size * 0.33)
-        q66_idx = int(size * 0.66)
+        idx33 = math.floor(size * 0.33)
+        idx66 = math.floor(size * 0.66)
+        q33 = array.get(sorted, idx33)
+        q66 = array.get(sorted, idx66)
+        result := range_val < q33 ? "Compressed" : range_val > q66 ? "Expanded" : "Normal"
+    result
 
-        q33 = array.get(sorted, q33_idx)
-        q66 = array.get(sorted, q66_idx)
+// Get London sweep
+f_london_sweep(lh, ll, ah, al) =>
+    swept_h = lh > ah
+    swept_l = ll < al
+    swept_h and swept_l ? "Both" : swept_h ? "High" : swept_l ? "Low" : "None"
 
-        if range_val < q33
-            "Compressed"
-        else if range_val > q66
-            "Expanded"
-        else
-            "Normal"
+// Get open vs London mid
+f_open_vs_london(open_price, lm, lr) =>
+    tol = lr * 0.25
+    upper = lm + tol
+    lower = lm - tol
+    open_price > upper ? "Above" : open_price < lower ? "Below" : "Within"
 
-// Get London Sweep pattern
-get_london_sweep(l_high, l_low, a_high, a_low) =>
-    swept_high = l_high > a_high
-    swept_low = l_low < a_low
-
-    if swept_high and swept_low
-        "Both"
-    else if swept_high
-        "High"
-    else if swept_low
-        "Low"
-    else
-        "None"
-
-// Get open position vs London midpoint
-get_open_vs_london(open_price, l_mid, l_range) =>
-    tolerance = l_range * 0.25
-    upper_band = l_mid + tolerance
-    lower_band = l_mid - tolerance
-
-    if open_price > upper_band
-        "Above"
-    else if open_price < lower_band
-        "Below"
-    else
-        "Within"
-
-// Find variant in map
-find_variant_index(variant_str) =>
+// Find variant
+f_find_variant(var_str) =>
     idx = -1
-    for i = 0 to array.size(map_variants) - 1
-        if array.get(map_variants, i) == variant_str
+    for i = 0 to DB_SIZE - 1
+        if array.get(db_variant, i) == var_str
             idx := i
             break
     idx
 
 // ============================================================================
-// SESSION DETECTION & DATA COLLECTION
+// MAIN LOGIC
 // ============================================================================
 
-// Detect new day
-new_day = ta.change(dayofweek)
+// New day detection
+new_day = ta.change(time("D"))
 
 // Reset on new day
 if new_day
-    asia_high := na
-    asia_low := na
-    asia_range := na
-    london_high := na
-    london_low := na
-    london_mid := na
-    london_range := na
-    transition_open := na
+    asia_h := na
+    asia_l := na
+    asia_r := na
+    london_h := na
+    london_l := na
+    london_m := na
+    london_r := na
+    trans_open := na
     ny_open := na
-    current_variant := na
-    variant_index := -1
+    current_variant := ""
+    variant_idx := -1
 
-// Track Asia session
-if asia_session
-    if na(asia_high) or high > asia_high
-        asia_high := high
-    if na(asia_low) or low < asia_low
-        asia_low := low
+// Track Asia
+if is_asia
+    asia_h := na(asia_h) ? high : math.max(asia_h, high)
+    asia_l := na(asia_l) ? low : math.min(asia_l, low)
 
-// Calculate Asia range at end of Asia session
-if not na(asia_session[1]) and na(asia_session)
-    asia_range := asia_high - asia_low
-    // Add to rolling history
-    array.push(asia_range_history, asia_range)
-    if array.size(asia_range_history) > asia_range_window
-        array.shift(asia_range_history)
+// End of Asia
+if is_asia[1] and not is_asia
+    asia_r := asia_h - asia_l
+    if not na(asia_r)
+        array.push(asia_history, asia_r)
+        if array.size(asia_history) > asia_range_window
+            array.shift(asia_history)
 
-// Track London session
-if london_session
-    if na(london_high) or high > london_high
-        london_high := high
-    if na(london_low) or low < london_low
-        london_low := low
+// Track London
+if is_london
+    london_h := na(london_h) ? high : math.max(london_h, high)
+    london_l := na(london_l) ? low : math.min(london_l, low)
 
-// Calculate London stats at end of London session
-if not na(london_session[1]) and na(london_session)
-    london_mid := (london_high + london_low) / 2
-    london_range := london_high - london_low
+// End of London
+if is_london[1] and not is_london
+    if not na(london_h) and not na(london_l)
+        london_m := (london_h + london_l) / 2
+        london_r := london_h - london_l
 
-// Capture Transition open (05:00 candle)
-if transition_session and na(transition_session[1])
-    transition_open := open
+// Capture Transition open
+if not na(time(timeframe.period, "0500-0501:12345")) and na(trans_open)
+    trans_open := open
 
-// Capture NY open and calculate variant
-if ny_session and na(ny_session[1])
+// NY open - calculate variant
+if is_ny and na(is_ny[1]) and na(ny_open)
     ny_open := open
 
-    // Calculate variant if all data is available
-    if not na(asia_range) and not na(london_high) and not na(london_low) and not na(london_mid) and not na(transition_open)
-        // Factor 1: Asia Range Regime
-        asia_regime = get_asia_regime(asia_range)
+    // Calculate variant if all data available
+    if not na(asia_r) and not na(london_h) and not na(london_l) and not na(london_m) and not na(trans_open) and not na(asia_h) and not na(asia_l)
 
-        // Factor 2: London Sweep
-        london_sweep = get_london_sweep(london_high, london_low, asia_high, asia_low)
+        asia_regime = f_asia_regime(asia_r)
+        london_sweep = f_london_sweep(london_h, london_l, asia_h, asia_l)
+        trans_vs_london = f_open_vs_london(trans_open, london_m, london_r)
+        ny_vs_london = f_open_vs_london(ny_open, london_m, london_r)
 
-        // Factor 3: Transition Open vs London Mid
-        transition_vs_london = get_open_vs_london(transition_open, london_mid, london_range)
-
-        // Factor 4: NY Open vs London Mid
-        ny_open_vs_london = get_open_vs_london(ny_open, london_mid, london_range)
-
-        // Create variant string
-        current_variant := asia_regime + "|" + london_sweep + "|" + transition_vs_london + "|" + ny_open_vs_london
-
-        // Find in map
-        variant_index := find_variant_index(current_variant)
+        current_variant := asia_regime + "|" + london_sweep + "|" + trans_vs_london + "|" + ny_vs_london
+        variant_idx := f_find_variant(current_variant)
 
 // ============================================================================
 // VISUALIZATION
 // ============================================================================
 
-// Draw session boxes
-if show_asia and asia_session and na(asia_session[1])
-    asia_box := box.new(bar_index, high, bar_index, low, bgcolor=asia_color, border_color=color.new(color.blue, 50))
+// Session boxes
+if show_sessions
+    // Asia
+    if is_asia and na(is_asia[1])
+        asia_box := box.new(bar_index, high, bar_index, low, bgcolor=asia_color, border_color=na)
+    if not na(asia_box) and is_asia
+        box.set_right(asia_box, bar_index)
+        box.set_top(asia_box, math.max(box.get_top(asia_box), high))
+        box.set_bottom(asia_box, math.min(box.get_bottom(asia_box), low))
 
-if not na(asia_box) and asia_session
-    box.set_right(asia_box, bar_index)
-    box.set_top(asia_box, math.max(box.get_top(asia_box), high))
-    box.set_bottom(asia_box, math.min(box.get_bottom(asia_box), low))
+    // London
+    if is_london and na(is_london[1])
+        london_box := box.new(bar_index, high, bar_index, low, bgcolor=london_color, border_color=na)
+    if not na(london_box) and is_london
+        box.set_right(london_box, bar_index)
+        box.set_top(london_box, math.max(box.get_top(london_box), high))
+        box.set_bottom(london_box, math.min(box.get_bottom(london_box), low))
 
-if show_london and london_session and na(london_session[1])
-    london_box := box.new(bar_index, high, bar_index, low, bgcolor=london_color, border_color=color.new(color.orange, 50))
+    // NY
+    if is_ny and na(is_ny[1])
+        ny_box := box.new(bar_index, high, bar_index, low, bgcolor=ny_color, border_color=na)
+    if not na(ny_box) and is_ny
+        box.set_right(ny_box, bar_index)
+        box.set_top(ny_box, math.max(box.get_top(ny_box), high))
+        box.set_bottom(ny_box, math.min(box.get_bottom(ny_box), low))
 
-if not na(london_box) and london_session
-    box.set_right(london_box, bar_index)
-    box.set_top(london_box, math.max(box.get_top(london_box), high))
-    box.set_bottom(london_box, math.min(box.get_bottom(london_box), low))
+// London levels
+if show_london_levels and is_ny and not na(london_h) and not na(london_l)
+    if na(london_h_line) or (na(is_ny[1]) and is_ny)
+        london_h_line := line.new(bar_index, london_h, bar_index, london_h, color=color.red, width=2, style=line.style_dashed)
+        london_l_line := line.new(bar_index, london_l, bar_index, london_l, color=color.green, width=2, style=line.style_dashed)
+    else
+        line.set_x2(london_h_line, bar_index)
+        line.set_x2(london_l_line, bar_index)
 
-if show_ny and ny_session and na(ny_session[1])
-    ny_box := box.new(bar_index, high, bar_index, low, bgcolor=ny_color, border_color=color.new(color.green, 50))
-
-if not na(ny_box) and ny_session
-    box.set_right(ny_box, bar_index)
-    box.set_top(ny_box, math.max(box.get_top(ny_box), high))
-    box.set_bottom(ny_box, math.min(box.get_bottom(ny_box), low))
-
-// Draw London High/Low lines during NY session
-if show_london_levels and ny_session and not na(london_high) and not na(london_low)
-    if na(london_high_line) or not na(ny_session[1]) and na(ny_session)
-        london_high_line := line.new(bar_index, london_high, bar_index, london_high, color=color.new(color.red, 0), width=2, style=line.style_dashed)
-        london_low_line := line.new(bar_index, london_low, bar_index, london_low, color=color.new(color.green, 0), width=2, style=line.style_dashed)
-
-    if not na(london_high_line)
-        line.set_x2(london_high_line, bar_index)
-        line.set_x2(london_low_line, bar_index)
-
-// ============================================================================
-// PROBABILITY TABLE
-// ============================================================================
-
+// Probability table
 if show_prob_table
-    if na(prob_table)
-        prob_table := table.new(position.top_right, 2, 10, border_width=1)
+    if na(info_table)
+        info_table := table.new(position.top_right, 2, 8, border_width=1)
 
-    if ny_session and variant_index >= 0
-        // Get probability data
-        n = array.get(map_n, variant_index)
-        p_high = array.get(map_first_high_pct, variant_index)
+    if is_ny and variant_idx >= 0
+        n = array.get(db_n, variant_idx)
+        p_high = array.get(db_p_high, variant_idx)
         p_low = 100.0 - p_high
-        p_fail = array.get(map_fail_pct, variant_index)
-        med_pen_high = array.get(map_median_pen_high, variant_index)
-        med_pen_low = array.get(map_median_pen_low, variant_index)
-        reliability_code = array.get(map_reliability, variant_index)
-        reliability_str = reliability_code == 1 ? "High" : (reliability_code == 2 ? "Medium" : "Low")
+        p_fail = array.get(db_p_fail, variant_idx)
+        pen_h = array.get(db_pen_high, variant_idx)
+        pen_l = array.get(db_pen_low, variant_idx)
 
-        // Update table
-        table.cell(prob_table, 0, 0, "NY PROBABILITY MAP", bgcolor=color.new(color.gray, 70), text_color=color.white, text_size=size.normal)
-        table.merge_cells(prob_table, 0, 0, 1, 0)
+        reliability = n >= 150 ? "High" : n >= 50 ? "Medium" : "Low"
+        rel_color = n >= 150 ? color.green : n >= 50 ? color.orange : color.red
 
-        table.cell(prob_table, 0, 1, "Variant:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
-        table.cell(prob_table, 1, 1, str.tostring(current_variant), bgcolor=color.new(color.gray, 90), text_color=color.yellow, text_size=size.small)
+        table.cell(info_table, 0, 0, "NY PROBABILITY MAP", bgcolor=color.new(color.gray, 70), text_color=color.white)
+        table.merge_cells(info_table, 0, 0, 1, 0)
 
-        table.cell(prob_table, 0, 2, "P(High First):", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
-        table.cell(prob_table, 1, 2, str.tostring(p_high, "#.##") + "%", bgcolor=color.new(color.red, 80), text_color=color.white, text_size=size.normal)
+        table.cell(info_table, 0, 1, "P(High First):", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 1, 1, str.tostring(p_high, "#.#") + "%", bgcolor=color.new(color.red, 80), text_color=color.white, text_size=size.large)
 
-        table.cell(prob_table, 0, 3, "P(Low First):", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
-        table.cell(prob_table, 1, 3, str.tostring(p_low, "#.##") + "%", bgcolor=color.new(color.green, 80), text_color=color.white, text_size=size.normal)
+        table.cell(info_table, 0, 2, "P(Low First):", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 1, 2, str.tostring(p_low, "#.#") + "%", bgcolor=color.new(color.green, 80), text_color=color.white, text_size=size.large)
 
-        table.cell(prob_table, 0, 4, "P(Fail):", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
-        table.cell(prob_table, 1, 4, str.tostring(p_fail, "#.##") + "%", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 0, 3, "P(Fail):", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 1, 3, str.tostring(p_fail, "#.#") + "%", bgcolor=color.new(color.gray, 90), text_color=color.white)
 
-        table.cell(prob_table, 0, 5, "Med Pen (High):", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
-        table.cell(prob_table, 1, 5, str.tostring(med_pen_high, "#.##") + " pts", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 0, 4, "Penetration:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 1, 4, str.tostring(p_high > 50 ? pen_h : pen_l, "#.#") + " pts", bgcolor=color.new(color.gray, 90), text_color=color.white)
 
-        table.cell(prob_table, 0, 6, "Med Pen (Low):", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
-        table.cell(prob_table, 1, 6, str.tostring(med_pen_low, "#.##") + " pts", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 0, 5, "Sample Size:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 1, 5, str.tostring(n), bgcolor=color.new(color.gray, 90), text_color=color.white)
 
-        table.cell(prob_table, 0, 7, "Sample Size:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
-        table.cell(prob_table, 1, 7, str.tostring(n), bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 0, 6, "Reliability:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 1, 6, reliability, bgcolor=color.new(color.gray, 90), text_color=rel_color)
 
-        table.cell(prob_table, 0, 8, "Reliability:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
-        rel_color = reliability_str == "High" ? color.green : (reliability_str == "Medium" ? color.orange : color.red)
-        table.cell(prob_table, 1, 8, reliability_str, bgcolor=color.new(color.gray, 90), text_color=rel_color, text_size=size.small)
+        table.cell(info_table, 0, 7, "Variant:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.tiny)
+        table.cell(info_table, 1, 7, current_variant, bgcolor=color.new(color.gray, 90), text_color=color.yellow, text_size=size.tiny)
 
-        table.cell(prob_table, 0, 9, "London High:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
-        table.cell(prob_table, 1, 9, str.tostring(london_high, "#.##"), bgcolor=color.new(color.red, 90), text_color=color.white, text_size=size.small)
+    else if not is_ny
+        table.clear(info_table, 0, 0, 1, 7)
 
-    else if not ny_session
-        // Clear table when not in NY session
-        table.clear(prob_table, 0, 0, 1, 9)
+// Plot London levels for reference
+plot(is_ny and not na(london_h) ? london_h : na, "London High", color=color.new(color.red, 80), linewidth=1, style=plot.style_circles)
+plot(is_ny and not na(london_l) ? london_l : na, "London Low", color=color.new(color.green, 80), linewidth=1, style=plot.style_circles)
 '''
 
     # Write the script to file
@@ -400,14 +355,14 @@ if show_prob_table
         f.write(pine_script)
 
     print(f"\n✓ PineScript generated: {output_file}")
-    print(f"  Variants embedded: {len(variants)}")
+    print(f"  Variants embedded: {len(top_variants)}")
     print(f"  Total lines: {len(pine_script.splitlines())}")
     print(f"  File size: {len(pine_script) / 1024:.2f} KB")
 
 def main():
     """Main execution."""
     print("\n" + "="*80)
-    print("TRADINGVIEW PINESCRIPT V5 GENERATOR")
+    print("TRADINGVIEW PINESCRIPT V5 GENERATOR (SIMPLIFIED)")
     print("="*80)
 
     # Load probability map
@@ -420,17 +375,16 @@ def main():
     print("✓ PINESCRIPT GENERATION COMPLETE")
     print("="*80)
 
-    print("\nUsage Instructions:")
-    print("1. Open TradingView (tradingview.com)")
-    print("2. Click 'Pine Editor' at the bottom")
-    print("3. Copy the contents of NY_Probability_Map.pine")
-    print("4. Paste into the Pine Editor")
-    print("5. Click 'Add to Chart'")
-    print("\nThe indicator will display:")
-    print("  - Session boxes for Asia, London, and NY")
+    print("\nFeatures:")
+    print("  - Top 25 most reliable variants only")
+    print("  - Robust NaN handling")
+    print("  - Session boxes (Asia, London, NY)")
     print("  - London High/Low target lines")
-    print("  - Live probability table during NY session (08:30-11:00)")
-    print("  - Variant-specific probabilities based on real-time context")
+    print("  - Live probability table during NY session")
+    print("\nUsage:")
+    print("  1. Open TradingView → Pine Editor")
+    print("  2. Copy/paste NY_Probability_Map.pine")
+    print("  3. Click 'Add to Chart'")
 
 if __name__ == '__main__':
     main()

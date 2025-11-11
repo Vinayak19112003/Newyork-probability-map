@@ -1,324 +1,270 @@
 // This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
-// © NY Probability Map - 108-Variant Context Engine
+// © NY Probability Map - Top 25 Variants
 
 //@version=5
-indicator("NY Probability Map (108-Variant)", overlay=true, max_boxes_count=500, max_labels_count=500)
+indicator("NY Probability Map", overlay=true, max_boxes_count=500, max_labels_count=500)
 
 // ============================================================================
 // USER INPUTS
 // ============================================================================
 
-// Session Display
-show_asia = input.bool(true, "Show Asia Session", group="Sessions")
-show_london = input.bool(true, "Show London Session", group="Sessions")
-show_ny = input.bool(true, "Show NY Session", group="Sessions")
-
-// Session Colors
-asia_color = input.color(color.new(color.blue, 90), "Asia Session", group="Colors")
-london_color = input.color(color.new(color.orange, 90), "London Session", group="Colors")
-ny_color = input.color(color.new(color.green, 90), "NY Session", group="Colors")
-
-// Lines
-show_london_levels = input.bool(true, "Show London High/Low", group="Display")
+show_sessions = input.bool(true, "Show Session Boxes", group="Display")
+show_london_levels = input.bool(true, "Show London Levels", group="Display")
 show_prob_table = input.bool(true, "Show Probability Table", group="Display")
 
-// Analysis Parameters
-asia_range_window = input.int(200, "Asia Range Rolling Window", minval=50, group="Analysis")
+asia_color = input.color(color.new(color.blue, 90), "Asia", group="Colors")
+london_color = input.color(color.new(color.orange, 90), "London", group="Colors")
+ny_color = input.color(color.new(color.green, 90), "NY", group="Colors")
+
+asia_range_window = input.int(200, "Asia Range Window", minval=50, maxval=500, group="Analysis")
 
 // ============================================================================
-// SESSION TIME DEFINITIONS (America/New_York)
+// TIME SESSIONS
 // ============================================================================
 
-// Asia: 20:00 (prev day) - 00:00
-asia_session = time(timeframe.period, "2000-0000:1234567")
-
-// London: 02:00 - 05:00
-london_session = time(timeframe.period, "0200-0500:1234567")
-
-// Transition: 05:00 - 08:30
-transition_session = time(timeframe.period, "0500-0830:1234567")
-
-// NY: 08:30 - 11:00
-ny_session = time(timeframe.period, "0830-1100:1234567")
+is_asia = not na(time(timeframe.period, "2000-0000:23456"))
+is_london = not na(time(timeframe.period, "0200-0500:12345"))
+is_ny = not na(time(timeframe.period, "0830-1100:12345"))
 
 // ============================================================================
-// PROBABILITY MAP DATA (EMBEDDED)
+// VARIANT DATABASE (TOP 25 BY SAMPLE SIZE)
 // ============================================================================
 
-// Probability Map Data (105 variants)
-var string[] map_variants = array.from("Expanded|High|Above|Above", "Expanded|High|Within|Below", "Normal|High|Above|Above", "Expanded|High|Within|Above", "Compressed|High|Above|Above", "Normal|High|Within|Above", "Expanded|Low|Within|Above", "Expanded|High|Within|Within", "Expanded|Low|Below|Below", "Compressed|High|Within|Above", "Normal|Low|Within|Above", "Expanded|Low|Within|Within", "Compressed|High|Within|Below", "Normal|High|Within|Within", "Normal|Low|Below|Below", "Expanded|Low|Within|Below", "Normal|Low|Within|Below", "Compressed|Low|Within|Below", "Normal|High|Within|Below", "Expanded|High|Above|Within", "Compressed|Low|Within|Above", "Expanded|None|Within|Above", "Expanded|High|Above|Below", "Normal|High|Above|Within", "Normal|High|Below|Below", "Compressed|Low|Below|Below", "Normal|Low|Within|Within", "Compressed|Both|Above|Above", "Expanded|Low|Below|Within", "Expanded|Low|Above|Above", "Expanded|None|Within|Below", "Compressed|High|Within|Within", "Compressed|Low|Within|Within", "Compressed|High|Above|Within", "Compressed|Both|Within|Above", "Compressed|Both|Within|Below", "Normal|Low|Above|Above", "Normal|High|Above|Below", "Compressed|Both|Within|Within", "Expanded|High|Below|Below", "Normal|Low|Below|Within", "Compressed|Low|Above|Above", "Compressed|Both|Below|Below", "Expanded|None|Above|Above", "Normal|Both|Above|Above", "Expanded|High|Below|Above", "Compressed|Low|Below|Within", "Compressed|High|Above|Below", "Compressed|High|Below|Below", "Normal|Both|Within|Within", "Normal|None|Within|Above", "Normal|Both|Within|Below", "Expanded|Both|Above|Above", "Expanded|Low|Below|Above", "Expanded|Both|Within|Within", "Normal|Both|Below|Below", "Normal|Both|Below|Within", "Compressed|Both|Below|Within", "Expanded|Both|Below|Below", "Expanded|None|Within|Within", "Compressed|Low|Above|Below", "Compressed|Low|Below|Above", "Normal|Low|Below|Above", "Compressed|High|Below|Within", "Expanded|Low|Above|Below", "Expanded|High|Below|Within", "Expanded|None|Below|Below", "Normal|High|Below|Above", "Normal|High|Below|Within", "Compressed|Both|Above|Below", "Compressed|Low|Above|Within", "Normal|Both|Above|Within", "Expanded|Both|Above|Within", "Normal|Low|Above|Below", "Normal|None|Within|Below", "Expanded|Both|Below|Within", "Compressed|Both|Above|Within", "Normal|None|Above|Within", "Normal|Both|Within|Above", "Normal|Low|Above|Within", "Expanded|None|Below|Above", "Expanded|Both|Within|Above", "Expanded|Low|Above|Within", "Expanded|None|Below|Within", "Normal|None|Above|Above", "Expanded|None|Above|Within", "Expanded|None|Above|Below", "Normal|Both|Above|Below", "Compressed|Both|Below|Above", "Compressed|High|Below|Above", "Normal|None|Within|Within", "Normal|Both|Below|Above", "Expanded|Both|Above|Below", "Compressed|None|Above|Within", "Compressed|None|Within|Above", "Expanded|Both|Within|Below", "Expanded|Both|Below|Above", "Compressed|None|Within|Below", "Normal|None|Below|Below", "Compressed|None|Below|Below", "Compressed|None|Below|Above", "Compressed|None|Above|Above", "Compressed|None|Within|Within", "Normal|None|Below|Within", "Normal|None|Above|Below")
+// Variant count: 25
+var int DB_SIZE = 25
 
-var int[] map_n = array.from(85, 66, 66, 63, 62, 62, 58, 57, 56, 51, 47, 46, 45, 43, 42, 41, 41, 41, 41, 38, 36, 36, 35, 34, 34, 33, 32, 32, 31, 29, 28, 28, 27, 27, 25, 25, 23, 22, 21, 20, 20, 20, 20, 19, 19, 19, 18, 16, 16, 15, 15, 15, 15, 14, 13, 13, 13, 13, 13, 12, 12, 12, 11, 10, 10, 9, 9, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 6, 6, 6, 6, 6, 6, 5, 5, 5, 5, 4, 4, 4, 4, 3, 3, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1)
+// Database arrays
+var string[] db_variant = array.from("Expanded|High|Above|Above", "Expanded|High|Within|Below", "Normal|High|Above|Above", "Expanded|High|Within|Above", "Compressed|High|Above|Above",
+     "Normal|High|Within|Above", "Expanded|Low|Within|Above", "Expanded|High|Within|Within", "Expanded|Low|Below|Below", "Compressed|High|Within|Above",
+     "Normal|Low|Within|Above", "Expanded|Low|Within|Within", "Compressed|High|Within|Below", "Normal|High|Within|Within", "Normal|Low|Below|Below",
+     "Expanded|Low|Within|Below", "Normal|Low|Within|Below", "Compressed|Low|Within|Below", "Normal|High|Within|Below", "Expanded|High|Above|Within",
+     "Compressed|Low|Within|Above", "Expanded|None|Within|Above", "Expanded|High|Above|Below", "Normal|High|Above|Within", "Normal|High|Below|Below")
 
-var float[] map_first_high_pct = array.from(92.94, 4.55, 92.42, 95.24, 93.55, 95.16, 94.83, 52.63, 5.36, 94.12, 91.49, 43.48, 2.22, 48.84, 2.38, 9.76, 7.32, 4.88, 9.76, 63.16, 91.67, 94.44, 5.71, 44.12, 5.88, 9.09, 53.12, 93.75, 45.16, 93.1, 0.0, 42.86, 37.04, 37.04, 96.0, 0.0, 95.65, 9.09, 61.9, 0.0, 45.0, 100.0, 0.0, 100.0, 94.74, 94.74, 55.56, 6.25, 0.0, 26.67, 100.0, 6.67, 100.0, 92.86, 46.15, 0.0, 38.46, 15.38, 0.0, 58.33, 8.33, 91.67, 90.91, 30.0, 10.0, 55.56, 0.0, 87.5, 37.5, 12.5, 50.0, 50.0, 50.0, 25.0, 0.0, 50.0, 37.5, 33.33, 100.0, 83.33, 100.0, 100.0, 66.67, 60.0, 100.0, 60.0, 0.0, 0.0, 100.0, 100.0, 25.0, 100.0, 0.0, 0.0, 100.0, 0.0, 100.0, 0.0, 0.0, 0.0, 100.0, 100.0, 100.0, 100.0, 0.0)
+var int[] db_n = array.from(85, 66, 66, 63, 62, 62, 58, 57, 56, 51, 47, 46, 45, 43, 42, 41, 41, 41, 41, 38, 36, 36, 35, 34, 34)
 
-var float[] map_fail_pct = array.from(34.12, 42.42, 31.82, 36.51, 37.1, 45.16, 29.31, 52.63, 23.21, 45.1, 38.3, 36.96, 46.67, 34.88, 38.1, 53.66, 36.59, 29.27, 29.27, 31.58, 58.33, 50.0, 31.43, 41.18, 44.12, 24.24, 46.88, 31.25, 22.58, 31.03, 39.29, 46.43, 44.44, 33.33, 32.0, 36.0, 43.48, 50.0, 47.62, 40.0, 40.0, 30.0, 25.0, 42.11, 31.58, 42.11, 44.44, 31.25, 50.0, 20.0, 40.0, 6.67, 26.67, 35.71, 15.38, 30.77, 23.08, 46.15, 7.69, 58.33, 33.33, 33.33, 36.36, 50.0, 80.0, 44.44, 44.44, 37.5, 50.0, 50.0, 50.0, 25.0, 12.5, 50.0, 37.5, 12.5, 25.0, 50.0, 66.67, 0.0, 83.33, 66.67, 33.33, 60.0, 80.0, 80.0, 40.0, 25.0, 50.0, 0.0, 25.0, 0.0, 66.67, 100.0, 100.0, 0.0, 0.0, 0.0, 100.0, 100.0, 0.0, 0.0, 100.0, 100.0, 100.0)
+var float[] db_p_high = array.from(92.94, 4.55, 92.42, 95.24, 93.55, 95.16, 94.83, 52.63, 5.36, 94.12, 91.49, 43.48, 2.22, 48.84, 2.38, 9.76, 7.32, 4.88, 9.76, 63.16, 91.67, 94.44, 5.71, 44.12, 5.88)
 
-var float[] map_median_pen_high = array.from(12.0, 10.65, 11.9, 13.85, 12.25, 18.75, 19.7, 8.2, 6.2, 15.98, 9.25, 15.75, 52.7, 17.05, 4.3, 10.9, 1.2, 63.25, 6.77, 10.7, 17.65, 21.47, 40.42, 11.35, 15.15, 4.9, 5.15, 28.13, 22.02, 41.9, nan, 9.5, 10.78, 6.35, 16.77, nan, 30.5, 18.23, 14.95, nan, 7.0, 16.72, nan, 14.9, 18.9, 12.18, 5.27, 10.1, nan, 17.32, 8.55, 4.5, 23.15, 18.8, 6.73, nan, 3.7, 13.92, nan, 7.2, 39.05, 12.7, 31.8, 39.95, 14.3, 6.3, nan, 14.3, 20.6, 5.2, 6.0, 13.75, 21.9, 64.35, nan, 2.35, 18.05, 2.97, 5.43, 25.95, 6.35, 13.37, 10.75, 19.75, 11.5, 15.6, nan, nan, 32.42, 35.55, 17.75, 24.5, nan, nan, 4.33, nan, 15.1, nan, nan, nan, 27.6, 33.4, 7.9, 20.2, nan)
+var float[] db_p_fail = array.from(34.12, 42.42, 31.82, 36.51, 37.10, 45.16, 29.31, 52.63, 23.21, 45.10, 38.30, 36.96, 46.67, 34.88, 38.10, 53.66, 36.59, 29.27, 29.27, 31.58, 58.33, 50.00, 31.43, 41.18, 44.12)
 
-var float[] map_median_pen_low = array.from(14.7, 21.35, 5.85, 9.1, 4.82, 9.9, 18.6, 8.65, 23.1, 9.4, 20.32, 16.17, 13.45, 11.9, 23.4, 21.85, 20.65, 23.8, 16.25, 10.13, 8.3, 8.38, 10.05, 5.65, 11.73, 15.0, 3.55, 134.15, 22.05, 22.8, 16.88, 6.38, 4.1, 7.6, 1.7, 17.7, 58.9, 10.85, 14.95, 28.05, 5.3, nan, 33.3, nan, 2.55, 52.9, 24.4, 19.8, 19.37, 31.2, nan, 67.15, nan, 2.45, 22.9, 12.25, 6.37, 6.3, 25.3, 2.1, 23.2, 116.5, 99.9, 23.2, 20.6, 14.77, 16.85, 10.2, 3.4, 50.7, 11.3, 13.03, 14.05, 18.83, 22.82, 20.1, 24.25, 1.25, nan, 21.3, nan, nan, 30.4, 1.82, nan, 10.92, 15.15, 58.85, nan, nan, 1.75, nan, 28.35, 7.73, nan, 6.83, nan, 8.5, 1.8, 8.7, nan, nan, nan, nan, 2.4)
+var float[] db_pen_high = array.from(12.00, 10.65, 11.90, 13.85, 12.25, 18.75, 19.70, 8.20, 6.20, 15.98, 9.25, 15.75, 52.70, 17.05, 4.30, 10.90, 1.20, 63.25, 6.77, 10.70, 17.65, 21.47, 40.42, 11.35, 15.15)
 
-var int[] map_reliability = array.from(2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3)
+var float[] db_pen_low = array.from(14.70, 21.35, 5.85, 9.10, 4.82, 9.90, 18.60, 8.65, 23.10, 9.40, 20.32, 16.17, 13.45, 11.90, 23.40, 21.85, 20.65, 23.80, 16.25, 10.13, 8.30, 8.38, 10.05, 5.65, 11.73)
 
 // ============================================================================
-// SESSION TRACKING VARIABLES
+// STATE VARIABLES
 // ============================================================================
 
-var float asia_high = na
-var float asia_low = na
-var float asia_range = na
+var float asia_h = na
+var float asia_l = na
+var float asia_r = na
 
-var float london_high = na
-var float london_low = na
-var float london_mid = na
-var float london_range = na
+var float london_h = na
+var float london_l = na
+var float london_m = na
+var float london_r = na
 
-var float transition_open = na
+var float trans_open = na
 var float ny_open = na
 
-var string current_variant = na
-var int variant_index = -1
+var string current_variant = ""
+var int variant_idx = -1
 
+var float[] asia_history = array.new_float()
+
+// Visual elements
 var box asia_box = na
 var box london_box = na
 var box ny_box = na
-
-var line london_high_line = na
-var line london_low_line = na
-
-var table prob_table = na
-
-// Arrays for rolling Asia range calculation
-var float[] asia_range_history = array.new_float(0)
+var line london_h_line = na
+var line london_l_line = na
+var table info_table = na
 
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
 
-// Get Asia Range Regime based on rolling quantiles
-get_asia_regime(range_val) =>
-    if array.size(asia_range_history) < 50
-        "Normal"  // Default until we have enough data
-    else
-        sorted = array.copy(asia_range_history)
+// Get Asia regime
+f_asia_regime(range_val) =>
+    result = "Normal"
+    if array.size(asia_history) >= 50
+        sorted = array.copy(asia_history)
         array.sort(sorted)
-
         size = array.size(sorted)
-        q33_idx = int(size * 0.33)
-        q66_idx = int(size * 0.66)
+        idx33 = math.floor(size * 0.33)
+        idx66 = math.floor(size * 0.66)
+        q33 = array.get(sorted, idx33)
+        q66 = array.get(sorted, idx66)
+        result := range_val < q33 ? "Compressed" : range_val > q66 ? "Expanded" : "Normal"
+    result
 
-        q33 = array.get(sorted, q33_idx)
-        q66 = array.get(sorted, q66_idx)
+// Get London sweep
+f_london_sweep(lh, ll, ah, al) =>
+    swept_h = lh > ah
+    swept_l = ll < al
+    swept_h and swept_l ? "Both" : swept_h ? "High" : swept_l ? "Low" : "None"
 
-        if range_val < q33
-            "Compressed"
-        else if range_val > q66
-            "Expanded"
-        else
-            "Normal"
+// Get open vs London mid
+f_open_vs_london(open_price, lm, lr) =>
+    tol = lr * 0.25
+    upper = lm + tol
+    lower = lm - tol
+    open_price > upper ? "Above" : open_price < lower ? "Below" : "Within"
 
-// Get London Sweep pattern
-get_london_sweep(l_high, l_low, a_high, a_low) =>
-    swept_high = l_high > a_high
-    swept_low = l_low < a_low
-
-    if swept_high and swept_low
-        "Both"
-    else if swept_high
-        "High"
-    else if swept_low
-        "Low"
-    else
-        "None"
-
-// Get open position vs London midpoint
-get_open_vs_london(open_price, l_mid, l_range) =>
-    tolerance = l_range * 0.25
-    upper_band = l_mid + tolerance
-    lower_band = l_mid - tolerance
-
-    if open_price > upper_band
-        "Above"
-    else if open_price < lower_band
-        "Below"
-    else
-        "Within"
-
-// Find variant in map
-find_variant_index(variant_str) =>
+// Find variant
+f_find_variant(var_str) =>
     idx = -1
-    for i = 0 to array.size(map_variants) - 1
-        if array.get(map_variants, i) == variant_str
+    for i = 0 to DB_SIZE - 1
+        if array.get(db_variant, i) == var_str
             idx := i
             break
     idx
 
 // ============================================================================
-// SESSION DETECTION & DATA COLLECTION
+// MAIN LOGIC
 // ============================================================================
 
-// Detect new day
-new_day = ta.change(dayofweek)
+// New day detection
+new_day = ta.change(time("D"))
 
 // Reset on new day
 if new_day
-    asia_high := na
-    asia_low := na
-    asia_range := na
-    london_high := na
-    london_low := na
-    london_mid := na
-    london_range := na
-    transition_open := na
+    asia_h := na
+    asia_l := na
+    asia_r := na
+    london_h := na
+    london_l := na
+    london_m := na
+    london_r := na
+    trans_open := na
     ny_open := na
-    current_variant := na
-    variant_index := -1
+    current_variant := ""
+    variant_idx := -1
 
-// Track Asia session
-if asia_session
-    if na(asia_high) or high > asia_high
-        asia_high := high
-    if na(asia_low) or low < asia_low
-        asia_low := low
+// Track Asia
+if is_asia
+    asia_h := na(asia_h) ? high : math.max(asia_h, high)
+    asia_l := na(asia_l) ? low : math.min(asia_l, low)
 
-// Calculate Asia range at end of Asia session
-if not na(asia_session[1]) and na(asia_session)
-    asia_range := asia_high - asia_low
-    // Add to rolling history
-    array.push(asia_range_history, asia_range)
-    if array.size(asia_range_history) > asia_range_window
-        array.shift(asia_range_history)
+// End of Asia
+if is_asia[1] and not is_asia
+    asia_r := asia_h - asia_l
+    if not na(asia_r)
+        array.push(asia_history, asia_r)
+        if array.size(asia_history) > asia_range_window
+            array.shift(asia_history)
 
-// Track London session
-if london_session
-    if na(london_high) or high > london_high
-        london_high := high
-    if na(london_low) or low < london_low
-        london_low := low
+// Track London
+if is_london
+    london_h := na(london_h) ? high : math.max(london_h, high)
+    london_l := na(london_l) ? low : math.min(london_l, low)
 
-// Calculate London stats at end of London session
-if not na(london_session[1]) and na(london_session)
-    london_mid := (london_high + london_low) / 2
-    london_range := london_high - london_low
+// End of London
+if is_london[1] and not is_london
+    if not na(london_h) and not na(london_l)
+        london_m := (london_h + london_l) / 2
+        london_r := london_h - london_l
 
-// Capture Transition open (05:00 candle)
-if transition_session and na(transition_session[1])
-    transition_open := open
+// Capture Transition open
+if not na(time(timeframe.period, "0500-0501:12345")) and na(trans_open)
+    trans_open := open
 
-// Capture NY open and calculate variant
-if ny_session and na(ny_session[1])
+// NY open - calculate variant
+if is_ny and na(is_ny[1]) and na(ny_open)
     ny_open := open
 
-    // Calculate variant if all data is available
-    if not na(asia_range) and not na(london_high) and not na(london_low) and not na(london_mid) and not na(transition_open)
-        // Factor 1: Asia Range Regime
-        asia_regime = get_asia_regime(asia_range)
+    // Calculate variant if all data available
+    if not na(asia_r) and not na(london_h) and not na(london_l) and not na(london_m) and not na(trans_open) and not na(asia_h) and not na(asia_l)
 
-        // Factor 2: London Sweep
-        london_sweep = get_london_sweep(london_high, london_low, asia_high, asia_low)
+        asia_regime = f_asia_regime(asia_r)
+        london_sweep = f_london_sweep(london_h, london_l, asia_h, asia_l)
+        trans_vs_london = f_open_vs_london(trans_open, london_m, london_r)
+        ny_vs_london = f_open_vs_london(ny_open, london_m, london_r)
 
-        // Factor 3: Transition Open vs London Mid
-        transition_vs_london = get_open_vs_london(transition_open, london_mid, london_range)
-
-        // Factor 4: NY Open vs London Mid
-        ny_open_vs_london = get_open_vs_london(ny_open, london_mid, london_range)
-
-        // Create variant string
-        current_variant := asia_regime + "|" + london_sweep + "|" + transition_vs_london + "|" + ny_open_vs_london
-
-        // Find in map
-        variant_index := find_variant_index(current_variant)
+        current_variant := asia_regime + "|" + london_sweep + "|" + trans_vs_london + "|" + ny_vs_london
+        variant_idx := f_find_variant(current_variant)
 
 // ============================================================================
 // VISUALIZATION
 // ============================================================================
 
-// Draw session boxes
-if show_asia and asia_session and na(asia_session[1])
-    asia_box := box.new(bar_index, high, bar_index, low, bgcolor=asia_color, border_color=color.new(color.blue, 50))
+// Session boxes
+if show_sessions
+    // Asia
+    if is_asia and na(is_asia[1])
+        asia_box := box.new(bar_index, high, bar_index, low, bgcolor=asia_color, border_color=na)
+    if not na(asia_box) and is_asia
+        box.set_right(asia_box, bar_index)
+        box.set_top(asia_box, math.max(box.get_top(asia_box), high))
+        box.set_bottom(asia_box, math.min(box.get_bottom(asia_box), low))
 
-if not na(asia_box) and asia_session
-    box.set_right(asia_box, bar_index)
-    box.set_top(asia_box, math.max(box.get_top(asia_box), high))
-    box.set_bottom(asia_box, math.min(box.get_bottom(asia_box), low))
+    // London
+    if is_london and na(is_london[1])
+        london_box := box.new(bar_index, high, bar_index, low, bgcolor=london_color, border_color=na)
+    if not na(london_box) and is_london
+        box.set_right(london_box, bar_index)
+        box.set_top(london_box, math.max(box.get_top(london_box), high))
+        box.set_bottom(london_box, math.min(box.get_bottom(london_box), low))
 
-if show_london and london_session and na(london_session[1])
-    london_box := box.new(bar_index, high, bar_index, low, bgcolor=london_color, border_color=color.new(color.orange, 50))
+    // NY
+    if is_ny and na(is_ny[1])
+        ny_box := box.new(bar_index, high, bar_index, low, bgcolor=ny_color, border_color=na)
+    if not na(ny_box) and is_ny
+        box.set_right(ny_box, bar_index)
+        box.set_top(ny_box, math.max(box.get_top(ny_box), high))
+        box.set_bottom(ny_box, math.min(box.get_bottom(ny_box), low))
 
-if not na(london_box) and london_session
-    box.set_right(london_box, bar_index)
-    box.set_top(london_box, math.max(box.get_top(london_box), high))
-    box.set_bottom(london_box, math.min(box.get_bottom(london_box), low))
+// London levels
+if show_london_levels and is_ny and not na(london_h) and not na(london_l)
+    if na(london_h_line) or (na(is_ny[1]) and is_ny)
+        london_h_line := line.new(bar_index, london_h, bar_index, london_h, color=color.red, width=2, style=line.style_dashed)
+        london_l_line := line.new(bar_index, london_l, bar_index, london_l, color=color.green, width=2, style=line.style_dashed)
+    else
+        line.set_x2(london_h_line, bar_index)
+        line.set_x2(london_l_line, bar_index)
 
-if show_ny and ny_session and na(ny_session[1])
-    ny_box := box.new(bar_index, high, bar_index, low, bgcolor=ny_color, border_color=color.new(color.green, 50))
-
-if not na(ny_box) and ny_session
-    box.set_right(ny_box, bar_index)
-    box.set_top(ny_box, math.max(box.get_top(ny_box), high))
-    box.set_bottom(ny_box, math.min(box.get_bottom(ny_box), low))
-
-// Draw London High/Low lines during NY session
-if show_london_levels and ny_session and not na(london_high) and not na(london_low)
-    if na(london_high_line) or not na(ny_session[1]) and na(ny_session)
-        london_high_line := line.new(bar_index, london_high, bar_index, london_high, color=color.new(color.red, 0), width=2, style=line.style_dashed)
-        london_low_line := line.new(bar_index, london_low, bar_index, london_low, color=color.new(color.green, 0), width=2, style=line.style_dashed)
-
-    if not na(london_high_line)
-        line.set_x2(london_high_line, bar_index)
-        line.set_x2(london_low_line, bar_index)
-
-// ============================================================================
-// PROBABILITY TABLE
-// ============================================================================
-
+// Probability table
 if show_prob_table
-    if na(prob_table)
-        prob_table := table.new(position.top_right, 2, 10, border_width=1)
+    if na(info_table)
+        info_table := table.new(position.top_right, 2, 8, border_width=1)
 
-    if ny_session and variant_index >= 0
-        // Get probability data
-        n = array.get(map_n, variant_index)
-        p_high = array.get(map_first_high_pct, variant_index)
+    if is_ny and variant_idx >= 0
+        n = array.get(db_n, variant_idx)
+        p_high = array.get(db_p_high, variant_idx)
         p_low = 100.0 - p_high
-        p_fail = array.get(map_fail_pct, variant_index)
-        med_pen_high = array.get(map_median_pen_high, variant_index)
-        med_pen_low = array.get(map_median_pen_low, variant_index)
-        reliability_code = array.get(map_reliability, variant_index)
-        reliability_str = reliability_code == 1 ? "High" : (reliability_code == 2 ? "Medium" : "Low")
+        p_fail = array.get(db_p_fail, variant_idx)
+        pen_h = array.get(db_pen_high, variant_idx)
+        pen_l = array.get(db_pen_low, variant_idx)
 
-        // Update table
-        table.cell(prob_table, 0, 0, "NY PROBABILITY MAP", bgcolor=color.new(color.gray, 70), text_color=color.white, text_size=size.normal)
-        table.merge_cells(prob_table, 0, 0, 1, 0)
+        reliability = n >= 150 ? "High" : n >= 50 ? "Medium" : "Low"
+        rel_color = n >= 150 ? color.green : n >= 50 ? color.orange : color.red
 
-        table.cell(prob_table, 0, 1, "Variant:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
-        table.cell(prob_table, 1, 1, str.tostring(current_variant), bgcolor=color.new(color.gray, 90), text_color=color.yellow, text_size=size.small)
+        table.cell(info_table, 0, 0, "NY PROBABILITY MAP", bgcolor=color.new(color.gray, 70), text_color=color.white)
+        table.merge_cells(info_table, 0, 0, 1, 0)
 
-        table.cell(prob_table, 0, 2, "P(High First):", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
-        table.cell(prob_table, 1, 2, str.tostring(p_high, "#.##") + "%", bgcolor=color.new(color.red, 80), text_color=color.white, text_size=size.normal)
+        table.cell(info_table, 0, 1, "P(High First):", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 1, 1, str.tostring(p_high, "#.#") + "%", bgcolor=color.new(color.red, 80), text_color=color.white, text_size=size.large)
 
-        table.cell(prob_table, 0, 3, "P(Low First):", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
-        table.cell(prob_table, 1, 3, str.tostring(p_low, "#.##") + "%", bgcolor=color.new(color.green, 80), text_color=color.white, text_size=size.normal)
+        table.cell(info_table, 0, 2, "P(Low First):", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 1, 2, str.tostring(p_low, "#.#") + "%", bgcolor=color.new(color.green, 80), text_color=color.white, text_size=size.large)
 
-        table.cell(prob_table, 0, 4, "P(Fail):", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
-        table.cell(prob_table, 1, 4, str.tostring(p_fail, "#.##") + "%", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 0, 3, "P(Fail):", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 1, 3, str.tostring(p_fail, "#.#") + "%", bgcolor=color.new(color.gray, 90), text_color=color.white)
 
-        table.cell(prob_table, 0, 5, "Med Pen (High):", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
-        table.cell(prob_table, 1, 5, str.tostring(med_pen_high, "#.##") + " pts", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 0, 4, "Penetration:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 1, 4, str.tostring(p_high > 50 ? pen_h : pen_l, "#.#") + " pts", bgcolor=color.new(color.gray, 90), text_color=color.white)
 
-        table.cell(prob_table, 0, 6, "Med Pen (Low):", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
-        table.cell(prob_table, 1, 6, str.tostring(med_pen_low, "#.##") + " pts", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 0, 5, "Sample Size:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 1, 5, str.tostring(n), bgcolor=color.new(color.gray, 90), text_color=color.white)
 
-        table.cell(prob_table, 0, 7, "Sample Size:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
-        table.cell(prob_table, 1, 7, str.tostring(n), bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 0, 6, "Reliability:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 1, 6, reliability, bgcolor=color.new(color.gray, 90), text_color=rel_color)
 
-        table.cell(prob_table, 0, 8, "Reliability:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
-        rel_color = reliability_str == "High" ? color.green : (reliability_str == "Medium" ? color.orange : color.red)
-        table.cell(prob_table, 1, 8, reliability_str, bgcolor=color.new(color.gray, 90), text_color=rel_color, text_size=size.small)
+        table.cell(info_table, 0, 7, "Variant:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.tiny)
+        table.cell(info_table, 1, 7, current_variant, bgcolor=color.new(color.gray, 90), text_color=color.yellow, text_size=size.tiny)
 
-        table.cell(prob_table, 0, 9, "London High:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
-        table.cell(prob_table, 1, 9, str.tostring(london_high, "#.##"), bgcolor=color.new(color.red, 90), text_color=color.white, text_size=size.small)
+    else if not is_ny
+        table.clear(info_table, 0, 0, 1, 7)
 
-    else if not ny_session
-        // Clear table when not in NY session
-        table.clear(prob_table, 0, 0, 1, 9)
+// Plot London levels for reference
+plot(is_ny and not na(london_h) ? london_h : na, "London High", color=color.new(color.red, 80), linewidth=1, style=plot.style_circles)
+plot(is_ny and not na(london_l) ? london_l : na, "London Low", color=color.new(color.green, 80), linewidth=1, style=plot.style_circles)
