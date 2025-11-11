@@ -269,7 +269,7 @@ if show_debug and is_ny and not is_ny[1]
 // PROBABILITY TABLE
 // ============================================================================
 
-var table info_table = table.new(position.top_right, 2, 10, border_width=1)
+var table info_table = table.new(position.top_right, 2, 17, border_width=1)
 
 if show_prob_table and is_ny
     if variant_idx >= 0
@@ -283,9 +283,16 @@ if show_prob_table and is_ny
         reliability = n >= 150 ? "High" : n >= 50 ? "Medium" : "Low"
         rel_color = n >= 150 ? color.green : n >= 50 ? color.orange : color.red
 
+        // Parse variant components
+        variant_parts = str.split(current_variant, "|")
+        asia_regime = array.size(variant_parts) > 0 ? array.get(variant_parts, 0) : "Unknown"
+        london_sweep = array.size(variant_parts) > 1 ? array.get(variant_parts, 1) : "Unknown"
+        ny_vs_london = array.size(variant_parts) > 2 ? array.get(variant_parts, 2) : "Unknown"
+
         table.cell(info_table, 0, 0, "NY PROBABILITY MAP", bgcolor=color.new(color.gray, 70), text_color=color.white, text_size=size.normal)
         table.merge_cells(info_table, 0, 0, 1, 0)
 
+        // Probabilities
         table.cell(info_table, 0, 1, "P(High First):", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
         table.cell(info_table, 1, 1, str.tostring(p_high, "#.#") + "%", bgcolor=color.new(color.red, 80), text_color=color.white, text_size=size.large)
 
@@ -304,17 +311,42 @@ if show_prob_table and is_ny
         table.cell(info_table, 0, 6, "Reliability:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
         table.cell(info_table, 1, 6, reliability, bgcolor=color.new(color.gray, 90), text_color=rel_color, text_size=size.small)
 
-        table.cell(info_table, 0, 7, "London High:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
-        table.cell(info_table, 1, 7, str.tostring(london_h, format.mintick), bgcolor=color.new(color.red, 90), text_color=color.white, text_size=size.small)
+        // Separator
+        table.cell(info_table, 0, 7, "─────────────", bgcolor=color.new(color.gray, 95), text_color=color.gray, text_size=size.tiny)
+        table.merge_cells(info_table, 0, 7, 1, 7)
 
-        table.cell(info_table, 0, 8, "London Low:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
-        table.cell(info_table, 1, 8, str.tostring(london_l, format.mintick), bgcolor=color.new(color.green, 90), text_color=color.white, text_size=size.small)
+        // Session Ranges
+        table.cell(info_table, 0, 8, "Asia Range:", bgcolor=color.new(color.blue, 95), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 1, 8, str.tostring(asia_r, "#.#") + " pts", bgcolor=color.new(color.blue, 95), text_color=color.white, text_size=size.small)
 
-        table.cell(info_table, 0, 9, "Variant:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.tiny)
-        table.cell(info_table, 1, 9, current_variant, bgcolor=color.new(color.gray, 90), text_color=color.yellow, text_size=size.tiny)
+        table.cell(info_table, 0, 9, "Asia Regime:", bgcolor=color.new(color.blue, 95), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 1, 9, asia_regime, bgcolor=color.new(color.blue, 95), text_color=color.yellow, text_size=size.small)
+
+        table.cell(info_table, 0, 10, "London Range:", bgcolor=color.new(color.orange, 95), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 1, 10, str.tostring(london_r, "#.#") + " pts", bgcolor=color.new(color.orange, 95), text_color=color.white, text_size=size.small)
+
+        table.cell(info_table, 0, 11, "London Sweep:", bgcolor=color.new(color.orange, 95), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 1, 11, london_sweep, bgcolor=color.new(color.orange, 95), text_color=color.yellow, text_size=size.small)
+
+        table.cell(info_table, 0, 12, "NY Open vs Lon:", bgcolor=color.new(color.green, 95), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 1, 12, ny_vs_london, bgcolor=color.new(color.green, 95), text_color=color.yellow, text_size=size.small)
+
+        // Separator
+        table.cell(info_table, 0, 13, "─────────────", bgcolor=color.new(color.gray, 95), text_color=color.gray, text_size=size.tiny)
+        table.merge_cells(info_table, 0, 13, 1, 13)
+
+        // Target Levels
+        table.cell(info_table, 0, 14, "London High:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 1, 14, str.tostring(london_h, format.mintick), bgcolor=color.new(color.red, 90), text_color=color.white, text_size=size.small)
+
+        table.cell(info_table, 0, 15, "London Low:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 1, 15, str.tostring(london_l, format.mintick), bgcolor=color.new(color.green, 90), text_color=color.white, text_size=size.small)
+
+        table.cell(info_table, 0, 16, "Variant:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.tiny)
+        table.cell(info_table, 1, 16, current_variant, bgcolor=color.new(color.gray, 90), text_color=color.yellow, text_size=size.tiny)
 
     else
-        table.clear(info_table, 0, 0, 1, 9)
+        table.clear(info_table, 0, 0, 1, 16)
         table.cell(info_table, 0, 0, "DEBUG INFO", bgcolor=color.new(color.red, 70), text_color=color.white, text_size=size.normal)
         table.merge_cells(info_table, 0, 0, 1, 0)
 
@@ -326,7 +358,7 @@ if show_prob_table and is_ny
             table.cell(info_table, 1, 2, current_variant, bgcolor=color.new(color.gray, 90), text_color=color.yellow, text_size=size.tiny)
 
             table.cell(info_table, 0, 3, "Note:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.tiny)
-            table.cell(info_table, 1, 3, "This setup has <34 samples", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.tiny)
+            table.cell(info_table, 1, 3, "This setup has <31 samples", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.tiny)
         else
             table.cell(info_table, 0, 1, "Status:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
             table.cell(info_table, 1, 1, "Missing Data", bgcolor=color.new(color.red, 90), text_color=color.white, text_size=size.small)
@@ -335,8 +367,8 @@ if show_prob_table and is_ny
             table.cell(info_table, 1, 2, "See blue label below", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.tiny)
 
 else if not is_ny and show_prob_table
-    table.clear(info_table, 0, 0, 1, 9)
-    table.cell(info_table, 0, 0, "Waiting for NY Session (08:30 ET)...", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
+    table.clear(info_table, 0, 0, 1, 16)
+    table.cell(info_table, 0, 0, "Waiting for NY Session (08:00 ET)...", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
     table.merge_cells(info_table, 0, 0, 1, 0)
 '''
 
