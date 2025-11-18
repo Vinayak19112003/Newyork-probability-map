@@ -23,10 +23,9 @@ asia_range_window = input.int(200, "Asia Range Window", minval=50, maxval=500, g
 // TIME SESSIONS
 // ============================================================================
 
-is_asia = not na(time(timeframe.period, "2000-0000:1234567", "America/New_York"))
-is_london = not na(time(timeframe.period, "0000-0500:12345", "America/New_York"))
-is_transition = not na(time(timeframe.period, "0500-0830:12345", "America/New_York"))
-is_ny = not na(time(timeframe.period, "0830-1100:12345", "America/New_York"))
+is_asia = not na(time(timeframe.period, "1600-0200:1234567", "America/New_York"))
+is_london = not na(time(timeframe.period, "0200-0800:12345", "America/New_York"))
+is_ny = not na(time(timeframe.period, "0800-1600:12345", "America/New_York"))
 
 // ============================================================================
 // VARIANT DATABASE (TOP 25)
@@ -34,17 +33,17 @@ is_ny = not na(time(timeframe.period, "0830-1100:12345", "America/New_York"))
 
 var int DB_SIZE = 25
 
-var string[] db_variant = array.from("Expanded|High|Above|Above", "Normal|High|Above|Above", "Expanded|High|Within|Within", "Expanded|High|Within|Above", "Compressed|High|Above|Above",
-     "Expanded|High|Within|Below", "Expanded|Low|Below|Below", "Expanded|Low|Within|Above", "Expanded|Low|Within|Below", "Normal|High|Within|Above",
-     "Normal|Low|Below|Below", "Normal|Low|Within|Above", "Compressed|High|Within|Above", "Compressed|Both|Above|Above", "Normal|High|Within|Within",
-     "Expanded|Low|Within|Within", "Normal|High|Above|Within", "Expanded|High|Above|Within", "Compressed|Low|Within|Below", "Normal|Low|Within|Below",
-     "Compressed|Low|Below|Below", "Normal|High|Within|Below", "Compressed|High|Within|Below", "Expanded|Low|Below|Within", "Compressed|Both|Within|Below")
+var string[] db_variant = array.from("Expanded|High|Within|Within", "Expanded|High|Above|Above", "Normal|High|Above|Above", "Normal|High|Within|Within", "Expanded|Low|Within|Within",
+     "Compressed|High|Within|Within", "Compressed|High|Above|Above", "Compressed|Low|Within|Within", "Normal|Low|Within|Within", "Expanded|None|Within|Within",
+     "Expanded|Low|Below|Below", "Normal|Low|Below|Below", "Compressed|Both|Within|Within", "Expanded|Low|Above|Above", "Compressed|Both|Above|Above",
+     "Compressed|Low|Below|Below", "Expanded|None|Above|Above", "Expanded|High|Below|Below", "Expanded|None|Below|Below", "Normal|None|Within|Within",
+     "Compressed|Both|Below|Below", "Normal|Both|Within|Within", "Normal|Both|Below|Below", "Compressed|Low|Above|Above", "Normal|Low|Above|Above")
 
-var int[] db_n = array.from(96, 80, 63, 62, 59, 59, 55, 52, 51, 49, 45, 44, 44, 44, 43, 43, 41, 39, 38, 36, 36, 36, 34, 34, 33)
-var float[] db_p_high = array.from(94.79, 91.25, 49.21, 93.55, 89.83, 5.08, 5.45, 94.23, 13.73, 95.92, 2.22, 90.91, 97.73, 95.45, 39.53, 41.86, 46.34, 58.97, 10.53, 2.78, 5.56, 16.67, 0.00, 38.24, 0.00)
-var float[] db_p_fail = array.from(22.92, 25.00, 46.03, 33.87, 38.98, 35.59, 21.82, 26.92, 43.14, 34.69, 33.33, 34.09, 43.18, 25.00, 34.88, 30.23, 31.71, 25.64, 26.32, 36.11, 27.78, 36.11, 44.12, 17.65, 36.36)
-var float[] db_pen_high = array.from(13.85, 12.00, 9.15, 12.65, 10.65, 19.05, 5.20, 14.65, 11.10, 18.55, 2.35, 11.03, 11.38, 29.20, 12.80, 15.02, 14.05, 8.15, 32.28, 91.85, 4.60, 7.15, nan, 21.65, nan)
-var float[] db_pen_low = array.from(12.90, 8.70, 7.10, 6.88, 6.57, 18.95, 19.23, 18.60, 19.23, 5.43, 26.55, 18.45, 3.40, 130.72, 7.37, 23.05, 8.35, 15.10, 21.85, 21.02, 20.80, 12.17, 12.80, 21.10, 22.40)
+var int[] db_n = array.from(182, 153, 134, 128, 126, 117, 109, 105, 102, 94, 92, 85, 59, 59, 56, 52, 51, 47, 46, 40, 37, 35, 34, 32, 31)
+var float[] db_p_high = array.from(53.85, 88.24, 85.82, 44.53, 46.03, 42.74, 88.07, 50.48, 54.90, 52.13, 16.30, 9.41, 35.59, 84.75, 85.71, 11.54, 92.16, 14.89, 13.04, 50.00, 10.81, 37.14, 20.59, 78.12, 90.32)
+var float[] db_p_fail = array.from(52.75, 45.10, 38.06, 48.44, 45.24, 52.14, 44.95, 51.43, 36.27, 46.81, 39.13, 38.82, 49.15, 52.54, 39.29, 28.85, 56.86, 46.81, 60.87, 70.00, 37.84, 34.29, 35.29, 53.12, 51.61)
+var float[] db_pen_high = array.from(11.85, 7.50, 5.10, 11.25, 11.93, 5.38, 4.80, 7.70, 6.32, 7.80, 6.20, 6.37, 11.28, 6.70, 7.50, 11.28, 6.10, 10.10, 13.25, 5.60, 17.23, 9.85, 9.30, 5.40, 6.80)
+var float[] db_pen_low = array.from(10.60, 8.65, 12.15, 8.20, 14.27, 7.60, 7.95, 9.60, 7.20, 11.35, 12.10, 7.40, 10.63, 11.50, 17.10, 9.50, 26.58, 4.12, 6.82, 5.58, 6.40, 13.03, 8.10, 3.80, 8.80)
 
 // ============================================================================
 // STATE VARIABLES
@@ -147,10 +146,7 @@ if not is_london and london_started and na(london_m)
     if not na(london_h) and not na(london_l)
         london_m := (london_h + london_l) / 2
         london_r := london_h - london_l
-
-// Capture Transition open
-if is_transition and not is_transition[1] and na(trans_open)
-    trans_open := open
+        trans_open := open  // Capture price at handoff (08:00)
 
 // NY open - calculate variant
 if is_ny and not is_ny[1] and na(ny_open)
@@ -210,7 +206,7 @@ if show_debug and is_ny and not is_ny[1]
 // PROBABILITY TABLE
 // ============================================================================
 
-var table info_table = table.new(position.top_right, 2, 10, border_width=1)
+var table info_table = table.new(position.top_right, 2, 17, border_width=1)
 
 if show_prob_table and is_ny
     if variant_idx >= 0
@@ -224,9 +220,16 @@ if show_prob_table and is_ny
         reliability = n >= 150 ? "High" : n >= 50 ? "Medium" : "Low"
         rel_color = n >= 150 ? color.green : n >= 50 ? color.orange : color.red
 
+        // Parse variant components
+        variant_parts = str.split(current_variant, "|")
+        asia_regime = array.size(variant_parts) > 0 ? array.get(variant_parts, 0) : "Unknown"
+        london_sweep = array.size(variant_parts) > 1 ? array.get(variant_parts, 1) : "Unknown"
+        ny_vs_london = array.size(variant_parts) > 2 ? array.get(variant_parts, 2) : "Unknown"
+
         table.cell(info_table, 0, 0, "NY PROBABILITY MAP", bgcolor=color.new(color.gray, 70), text_color=color.white, text_size=size.normal)
         table.merge_cells(info_table, 0, 0, 1, 0)
 
+        // Probabilities
         table.cell(info_table, 0, 1, "P(High First):", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
         table.cell(info_table, 1, 1, str.tostring(p_high, "#.#") + "%", bgcolor=color.new(color.red, 80), text_color=color.white, text_size=size.large)
 
@@ -245,17 +248,42 @@ if show_prob_table and is_ny
         table.cell(info_table, 0, 6, "Reliability:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
         table.cell(info_table, 1, 6, reliability, bgcolor=color.new(color.gray, 90), text_color=rel_color, text_size=size.small)
 
-        table.cell(info_table, 0, 7, "London High:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
-        table.cell(info_table, 1, 7, str.tostring(london_h, format.mintick), bgcolor=color.new(color.red, 90), text_color=color.white, text_size=size.small)
+        // Separator
+        table.cell(info_table, 0, 7, "─────────────", bgcolor=color.new(color.gray, 95), text_color=color.gray, text_size=size.tiny)
+        table.merge_cells(info_table, 0, 7, 1, 7)
 
-        table.cell(info_table, 0, 8, "London Low:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
-        table.cell(info_table, 1, 8, str.tostring(london_l, format.mintick), bgcolor=color.new(color.green, 90), text_color=color.white, text_size=size.small)
+        // Session Ranges
+        table.cell(info_table, 0, 8, "Asia Range:", bgcolor=color.new(color.blue, 95), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 1, 8, str.tostring(asia_r, "#.#") + " pts", bgcolor=color.new(color.blue, 95), text_color=color.white, text_size=size.small)
 
-        table.cell(info_table, 0, 9, "Variant:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.tiny)
-        table.cell(info_table, 1, 9, current_variant, bgcolor=color.new(color.gray, 90), text_color=color.yellow, text_size=size.tiny)
+        table.cell(info_table, 0, 9, "Asia Regime:", bgcolor=color.new(color.blue, 95), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 1, 9, asia_regime, bgcolor=color.new(color.blue, 95), text_color=color.yellow, text_size=size.small)
+
+        table.cell(info_table, 0, 10, "London Range:", bgcolor=color.new(color.orange, 95), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 1, 10, str.tostring(london_r, "#.#") + " pts", bgcolor=color.new(color.orange, 95), text_color=color.white, text_size=size.small)
+
+        table.cell(info_table, 0, 11, "London Sweep:", bgcolor=color.new(color.orange, 95), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 1, 11, london_sweep, bgcolor=color.new(color.orange, 95), text_color=color.yellow, text_size=size.small)
+
+        table.cell(info_table, 0, 12, "NY Open vs Lon:", bgcolor=color.new(color.green, 95), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 1, 12, ny_vs_london, bgcolor=color.new(color.green, 95), text_color=color.yellow, text_size=size.small)
+
+        // Separator
+        table.cell(info_table, 0, 13, "─────────────", bgcolor=color.new(color.gray, 95), text_color=color.gray, text_size=size.tiny)
+        table.merge_cells(info_table, 0, 13, 1, 13)
+
+        // Target Levels
+        table.cell(info_table, 0, 14, "London High:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 1, 14, str.tostring(london_h, format.mintick), bgcolor=color.new(color.red, 90), text_color=color.white, text_size=size.small)
+
+        table.cell(info_table, 0, 15, "London Low:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
+        table.cell(info_table, 1, 15, str.tostring(london_l, format.mintick), bgcolor=color.new(color.green, 90), text_color=color.white, text_size=size.small)
+
+        table.cell(info_table, 0, 16, "Variant:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.tiny)
+        table.cell(info_table, 1, 16, current_variant, bgcolor=color.new(color.gray, 90), text_color=color.yellow, text_size=size.tiny)
 
     else
-        table.clear(info_table, 0, 0, 1, 9)
+        table.clear(info_table, 0, 0, 1, 16)
         table.cell(info_table, 0, 0, "DEBUG INFO", bgcolor=color.new(color.red, 70), text_color=color.white, text_size=size.normal)
         table.merge_cells(info_table, 0, 0, 1, 0)
 
@@ -267,7 +295,7 @@ if show_prob_table and is_ny
             table.cell(info_table, 1, 2, current_variant, bgcolor=color.new(color.gray, 90), text_color=color.yellow, text_size=size.tiny)
 
             table.cell(info_table, 0, 3, "Note:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.tiny)
-            table.cell(info_table, 1, 3, "This setup has <34 samples", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.tiny)
+            table.cell(info_table, 1, 3, "This setup has <31 samples", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.tiny)
         else
             table.cell(info_table, 0, 1, "Status:", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
             table.cell(info_table, 1, 1, "Missing Data", bgcolor=color.new(color.red, 90), text_color=color.white, text_size=size.small)
@@ -276,6 +304,6 @@ if show_prob_table and is_ny
             table.cell(info_table, 1, 2, "See blue label below", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.tiny)
 
 else if not is_ny and show_prob_table
-    table.clear(info_table, 0, 0, 1, 9)
-    table.cell(info_table, 0, 0, "Waiting for NY Session (08:30 ET)...", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
+    table.clear(info_table, 0, 0, 1, 16)
+    table.cell(info_table, 0, 0, "Waiting for NY Session (08:00 ET)...", bgcolor=color.new(color.gray, 90), text_color=color.white, text_size=size.small)
     table.merge_cells(info_table, 0, 0, 1, 0)
